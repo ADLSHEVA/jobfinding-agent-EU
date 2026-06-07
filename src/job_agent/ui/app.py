@@ -34,7 +34,7 @@ from job_agent.tracker.state_machine import ALLOWED_TRANSITIONS  # noqa: E402
 from job_agent.ui.demo_data import demo_jobs  # noqa: E402
 
 st.set_page_config(page_title="EU Job Agent", layout="wide")
-st.caption("build 2026-06-05-f")  # version heartbeat: if you see this, the latest code is live
+st.caption("build 2026-06-07-g")  # version heartbeat: if you see this, the latest code is live
 
 
 def _application_store():
@@ -86,18 +86,24 @@ def _llm_ask():
 
 
 # --- sidebar: candidate profile ---------------------------------------------
+# Explicit ``key=`` on every widget so Streamlit's auto-generated IDs are stable
+# across reruns.  Without them, changing one widget's *value* can shift the
+# hash-based key of a neighbouring widget on Community Cloud, triggering a
+# DuplicateWidgetID or a silent white-screen.  (See commit f04e55f.)
 st.sidebar.header("Candidate")
-nationality = st.sidebar.text_input("Nationality (ISO-2)", value="CN")
-degree_country = st.sidebar.text_input("Degree country (ISO-2, or blank)", value="CH")
-field = st.sidebar.text_input("Field", value="international relations")
+nationality = st.sidebar.text_input("Nationality (ISO-2)", value="CN", key="wdg_nationality")
+degree_country = st.sidebar.text_input("Degree country (ISO-2, or blank)", value="CH", key="wdg_degree_country")
+field = st.sidebar.text_input("Field", value="international relations", key="wdg_field")
 skills_raw = st.sidebar.text_area("Skills (comma-separated)",
-                                  value="policy analysis, advocacy, stakeholder engagement")
-languages_raw = st.sidebar.text_input("Languages (ISO-639-1, comma)", value="en, fr")
-track_choices = st.sidebar.multiselect("Tracks", ["private", "intl_org"], default=["private", "intl_org"])
+                                  value="policy analysis, advocacy, stakeholder engagement",
+                                  key="wdg_skills")
+languages_raw = st.sidebar.text_input("Languages (ISO-639-1, comma)", value="en, fr", key="wdg_languages")
+track_choices = st.sidebar.multiselect("Tracks", ["private", "intl_org"],
+                                       default=["private", "intl_org"], key="wdg_tracks")
 
 if llm_enabled:
-    cv_text = st.sidebar.text_area("…or paste a CV and parse it", height=120)
-    if st.sidebar.button("Parse CV with DeepSeek") and cv_text.strip():
+    cv_text = st.sidebar.text_area("…or paste a CV and parse it", height=120, key="wdg_cv_text")
+    if st.sidebar.button("Parse CV with DeepSeek", key="btn_parse_cv") and cv_text.strip():
         from job_agent.parsing import parse_cv
 
         start_run("cv-parse")
@@ -110,21 +116,25 @@ if llm_enabled:
 else:
     st.sidebar.info("Set LLM_API_KEY (DeepSeek) to enable CV parsing & cover letters.")
 
-profile = CandidateProfile(
-    nationality=nationality.strip().upper(),
-    degree_country=degree_country.strip().upper() or None,
-    field=field.strip(),
-    skills=[s.strip() for s in skills_raw.split(",") if s.strip()],
-    languages=[lang.strip().lower() for lang in languages_raw.split(",") if lang.strip()],
-    tracks=[Track(t) for t in track_choices] or [Track.private],
-)
+try:
+    profile = CandidateProfile(
+        nationality=nationality.strip().upper(),
+        degree_country=degree_country.strip().upper() or None,
+        field=field.strip(),
+        skills=[s.strip() for s in skills_raw.split(",") if s.strip()],
+        languages=[lang.strip().lower() for lang in languages_raw.split(",") if lang.strip()],
+        tracks=[Track(t) for t in track_choices] or [Track.private],
+    )
+except Exception as exc:
+    st.error(f"Profile error: {exc}")
+    st.stop()
 st.sidebar.caption(f"DeepSeek spend this session: ${obs.total_cost_usd():.4f}")
 
 st.sidebar.divider()
 st.sidebar.header("Jobs source")
-source_mode = st.sidebar.radio("Source", ["Demo data", "Live (configured sources)"])
-live_country = st.sidebar.text_input("Country (ISO-2)", value="CH")
-live_keywords = st.sidebar.text_input("Keywords", value="policy")
+source_mode = st.sidebar.radio("Source", ["Demo data", "Live (configured sources)"], key="wdg_source_mode")
+live_country = st.sidebar.text_input("Country (ISO-2)", value="CH", key="wdg_live_country")
+live_keywords = st.sidebar.text_input("Keywords", value="policy", key="wdg_live_keywords")
 
 
 def _load_jobs():
@@ -177,7 +187,7 @@ with tab_matches:
     # Compute ONLY when the button is clicked, then cache in session_state. Otherwise
     # every interaction (track / cover-letter) would re-run the whole expensive
     # discovery + embedding pipeline — which is what white-screened the cloud app.
-    if st.button("🔍 Find / refresh jobs", type="primary"):
+    if st.button("🔍 Find / refresh jobs", type="primary", key="btn_find_jobs"):
         from job_agent.matching import default_similarity
 
         with st.spinner("Working… Live mode discovers companies via search; can take a minute."):
@@ -251,7 +261,7 @@ def _refresh_apps() -> None:
 with tab_apps:
     # Lazy: the Supabase read happens only on click, never on initial page load (a
     # blocking read at load was the likely cause of the blank page on the cloud).
-    if st.button("↻ Load / refresh applications"):
+    if st.button("↻ Load / refresh applications", key="btn_refresh_apps"):
         _refresh_apps()
     apps, due = st.session_state.get("apps_cache", ([], set()))
     if not apps:
