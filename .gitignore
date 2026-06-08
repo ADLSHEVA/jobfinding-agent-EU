@@ -9,3 +9,9 @@ __pycache__/
 .ruff_cache/
 artifacts/
 .codegraph/
+
+# local-only notes / tooling (not part of the product)
+mistral_review.txt
+xiaomi_review.txt
+revio-audit-report.md
+skills/
