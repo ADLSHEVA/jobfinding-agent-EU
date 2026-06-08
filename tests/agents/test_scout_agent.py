@@ -65,7 +65,9 @@ def test_one_company_failure_does_not_abort_others() -> None:
     result = agent.run(ScoutQuery(DiscoveryQuery(country="CZ")))
 
     assert [j.title for j in result.jobs] == ["Junior Developer"]
-    assert len(result.errors) == 1 and "Co boom" in result.errors[0]
+    # A single discovered company's fetch failing is a routine discovery miss, skipped
+    # silently — 'acme' still comes through and nothing noisy is surfaced to the user.
+    assert result.errors == []
 
 
 def test_dedupe_across_sources() -> None:

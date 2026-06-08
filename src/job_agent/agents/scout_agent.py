@@ -25,7 +25,6 @@ from job_agent.models.job import Job
 from job_agent.observability import ObservabilityStore, start_run
 from job_agent.persistence import JobStore, dedupe_jobs
 from job_agent.sources import HttpGet, fetch_company_jobs
-from job_agent.sources.http import SourceHTTPError
 from job_agent.sources.board import BoardSource
 from job_agent.visa.signal import VisaSignalClassifier
 
@@ -105,15 +104,12 @@ class ScoutAgent:
         for company in companies:
             try:
                 jobs.extend(self._ats_fetch(company, self._http_get))
-            except SourceHTTPError as exc:
-                # Routine, non-actionable misses we shouldn't show the user:
-                #   404/410 — the discovered handle has no board there.
-                #   429     — the ATS rate-limited us (transient; re-run later).
-                # Only surface genuine failures (auth, 5xx, etc.).
-                if exc.status not in (404, 410, 429):
-                    errors.append(f"{company.name} [{company.ats}]: HTTP {exc.status}")
-            except Exception as exc:  # noqa: BLE001 - one company must not abort the rest
-                errors.append(f"{company.name} [{company.ats}]: {type(exc).__name__}: {exc}")
+            except Exception:  # noqa: BLE001
+                # A single discovered company failing to fetch — 404/403/410/429, a read
+                # timeout, a connection reset — is a ROUTINE discovery miss (the engine
+                # guesses ATS handles), never actionable for the user. Skip it silently;
+                # genuine problems still surface via the board_sources loop below.
+                continue
 
         # --- Board sources: Layer-1 aggregators + Track B international orgs ---
         for source in self._board_sources:

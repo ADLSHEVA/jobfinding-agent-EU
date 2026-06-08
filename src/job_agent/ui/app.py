@@ -455,7 +455,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-v")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-w")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
