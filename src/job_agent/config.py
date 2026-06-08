@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     # countries incl. Czechia. Free key at https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
     rapidapi_key: str = Field(default="")
 
+    # Keyword extraction LLM (cheap/fast, e.g. Mistral-small) — used to extract
+    # domain-specific search terms from the candidate profile.  Separate from the
+    # main LLM (DeepSeek) so keyword extraction doesn't compete with CV parsing /
+    # cover-letter generation for quota.  Falls back to heuristic extraction when
+    # not configured.
+    keyword_llm_api_key: str = Field(default="")
+    keyword_llm_base_url: str = Field(default="https://api.mistral.ai/v1")
+    keyword_llm_model: str = Field(default="mistral-small-latest")
+
     @property
     def zefix_auth_header(self) -> str | None:
         if not (self.zefix_username and self.zefix_password):

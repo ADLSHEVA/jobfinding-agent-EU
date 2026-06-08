@@ -14,6 +14,7 @@ from job_agent.config import get_settings
 _BLANKED = (
     "LLM_API_KEY", "EMBEDDING_API_KEY", "EMBEDDING_BASE_URL",
     "SUPABASE_URL", "SUPABASE_KEY", "BRAVE_API_KEY",
+    "KEYWORD_LLM_API_KEY",
 )
 
 

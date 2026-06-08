@@ -69,6 +69,9 @@ class JobRoomSource:
 
         keywords = [k.lower() for k in query.keywords]
         if keywords:  # the API rejects extra filter fields, so filter client-side
+            # Use ``any()`` — the downstream domain filter handles relevance more
+            # precisely.  Here we just need to keep the feed from being 100% noise;
+            # being too aggressive risks dropping viable junior-level postings.
             jobs = [
                 j for j in jobs
                 if any(k in f"{j.title} {j.description}".lower() for k in keywords)

@@ -213,21 +213,18 @@ def _render() -> None:
         from job_agent.discovery import (DiscoveryQuery, keep_jobs_in_country,
                                          keep_jobs_in_europe)
         from job_agent.discovery.seed_builder import load_seeds
+        from job_agent.matching import build_keyword_llm_ask, extract_domain_keywords
         from job_agent.persistence import dedupe_jobs
         from job_agent.pipeline import brave_search_fn, build_live_scout, production_transports
 
-        # Discovery search terms come from the field + a few salient words of the
-        # experience text (a whole paragraph makes a useless Brave query). These TARGET
-        # which companies/roles get found and also filter the JobRoom feed.
-        _stop = {"with", "from", "this", "that", "your", "into", "work", "team", "experience",
-                 "internship", "intern", "support", "supported", "including"}
-        seen: list[str] = []
-        for w in (profile.field.replace(",", " ").split()
-                  + [w.strip(".,;:()").lower() for w in profile.experience.split()]):
-            wl = w.lower()
-            if len(wl) > 3 and wl not in _stop and wl not in seen:
-                seen.append(wl)
-        keywords = seen[:6] or ["policy", "international"]
+        # Smart keyword extraction: use the keyword LLM (Mistral) to generate
+        # domain-specific search terms that avoid generic words matching every industry.
+        keyword_ask = build_keyword_llm_ask(settings)
+        domain_kw = extract_domain_keywords(
+            profile.field, profile.skills, profile.experience, keyword_ask)
+        keywords = domain_kw.retrieval_keywords or ["policy", "international"]
+        # Store domain_terms in session_state for the post-retrieval filter.
+        st.session_state.domain_terms = domain_kw.domain_terms
 
         http_get, http_json, http_post = production_transports()
         search_fn = brave_search_fn(settings)  # the discovery engine (if BRAVE_API_KEY set)
@@ -266,6 +263,17 @@ def _render() -> None:
                     errors.append(f"{country}: live scout failed: {exc}")
 
         jobs = dedupe_jobs(all_jobs)  # same role can appear under multiple countries' fetches
+        # Domain filter: remove jobs from unrelated industries (e.g. IT jobs when
+        # the candidate is in international relations).  Uses the domain_terms
+        # extracted by the keyword LLM above.
+        from job_agent.matching import filter_by_domain as _filter_domain
+        domain_terms = st.session_state.get("domain_terms", [])
+        if domain_terms:
+            before = len(jobs)
+            jobs = _filter_domain(jobs, domain_terms)
+            filtered = before - len(jobs)
+            if filtered:
+                errors.append(f"Domain filter removed {filtered} jobs from unrelated industries.")
         store = _job_store()
         if store is not None and jobs:
             try:

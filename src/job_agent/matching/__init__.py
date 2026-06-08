@@ -7,6 +7,13 @@ signal, and language fit. Relevance defaults to offline lexical similarity; pass
 analysis on demand.
 """
 
+from job_agent.matching.domain_filter import (
+    DomainKeywords,
+    build_keyword_llm_ask,
+    extract_domain_keywords,
+    filter_by_domain,
+    passes_domain_filter,
+)
 from job_agent.matching.embedders import (
     OpenAICompatibleEmbedder,
     build_embedder,
@@ -22,7 +29,9 @@ from job_agent.matching.similarity import (
 )
 
 __all__ = [
+    "DomainKeywords",
     "Embedder",
+    "build_keyword_llm_ask",
     "GapAnalysis",
     "OpenAICompatibleEmbedder",
     "RankedJob",
@@ -32,6 +41,9 @@ __all__ = [
     "content_score",
     "cosine",
     "default_similarity",
+    "extract_domain_keywords",
+    "filter_by_domain",
     "lexical_similarity",
+    "passes_domain_filter",
     "shortlist",
 ]
