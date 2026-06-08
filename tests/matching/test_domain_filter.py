@@ -204,7 +204,7 @@ def test_filter_preserves_order() -> None:
 
 
 def test_ir_candidate_filters_out_it_jobs() -> None:
-    """Core scenario: IR candidate sees policy + admin/coordination roles, NOT IT."""
+    """Core scenario: IR candidate sees policy/NGO/intl-org roles, NOT IT."""
     domain = ["public affairs", "policy", "political", "EU legislation",
               "advocacy", "governance", "NGO", "international organization",
               "international affairs", "public policy", "foreign affairs",
@@ -212,32 +212,20 @@ def test_ir_candidate_filters_out_it_jobs() -> None:
               "public sector", "think tank", "civil society", "diplomatic",
               "international development", "development cooperation",
               "trainee", "assistant", "coordinator", "officer", "intern",
-              "UN", "WHO", "UNDP",
-              # Transferable-skill roles at private companies
-              "project coordination", "stakeholder", "client relations",
-              "account management", "office management", "communication",
-              "event coordination", "partnership", "liaison"]
+              "UN", "WHO", "UNDP"]
     jobs = [
         # --- Should PASS: IR-domain jobs ---
         _job("good1", "Junior Policy Officer — EU Public Affairs",
              "Join our policy team to draft policy briefs, monitor EU legislation."),
         _job("good2", "Trainee — International Development NGO",
              "Support international development programs. Advocacy for EU funding."),
-        _job("good5", "Intern - Political Affairs",
+        _job("good3", "Intern - Political Affairs",
              "Assist in monitoring political developments, draft reports on "
              "international affairs, support peace process coordination."),
-        _job("good6", "Junior Professional Officer - Human Rights",
+        _job("good4", "Junior Professional Officer - Human Rights",
              "Support human rights monitoring, assist with advocacy."),
-        # --- Should PASS: transferable-skill roles at private companies ---
-        _job("good7", "Project Coordinator — Consulting Firm",
-             "Coordinate client projects, manage stakeholder communication, "
-             "support event coordination for partner meetings."),
-        _job("good8", "Junior Account Manager",
-             "Manage client relations and partnerships. Liaison between "
-             "internal teams and external stakeholders."),
-        _job("good9", "Office Assistant — International Company",
-             "Support office management, coordinate meetings, handle "
-             "communication with partners and clients."),
+        _job("good5", "Research Assistant — Think Tank",
+             "Support policy research and analysis for a European think tank."),
         # --- Should FAIL: IT/tech jobs ---
         _job("bad1", "Software Engineer (International Team)",
              "We are looking for an international team player to join our engineering "
@@ -246,19 +234,24 @@ def test_ir_candidate_filters_out_it_jobs() -> None:
              "Join a fast-growing tech company in Zurich. Python, AWS, Kubernetes."),
         _job("bad3", "Data Analyst",
              "Work with large datasets. SQL, Python, Tableau."),
+        _job("bad4", "IT Project Manager",
+             "Coordinate project milestones, manage stakeholder expectations, "
+             "liaison between dev teams and business."),
+        _job("bad5", "Scrum Master",
+             "Facilitate sprint planning, coordinate team communication, "
+             "manage stakeholder engagement."),
     ]
     filtered = filter_by_domain(jobs, domain)
     ids = [j.external_id for j in filtered]
     # IR-domain jobs pass
     assert "good1" in ids
     assert "good2" in ids
+    assert "good3" in ids
+    assert "good4" in ids
     assert "good5" in ids
-    assert "good6" in ids
-    # Transferable-skill jobs at private companies also pass
-    assert "good7" in ids
-    assert "good8" in ids
-    assert "good9" in ids
-    # IT jobs filtered out
+    # IT jobs filtered out (including ones with "stakeholder", "liaison", etc.)
     assert "bad1" not in ids
     assert "bad2" not in ids
     assert "bad3" not in ids
+    assert "bad4" not in ids
+    assert "bad5" not in ids

@@ -46,24 +46,20 @@ _PROMPT_TEMPLATE = (
     "   These are fed to Google for Jobs and Brave Search — they determine "
     "   WHAT gets found.  If you only include private-sector terms, zero "
     "   international-organisation jobs will appear.\n\n"
-    '2. "domain_terms": 10-15 short phrases (1-3 words each) that a relevant '
-    "job posting MIGHT contain.  Be VERY INCLUSIVE.\n\n"
+    '2. "domain_terms": 8-12 short phrases (1-3 words each) that identify the '
+    "INDUSTRY/SECTOR of a relevant posting — NOT generic skills.\n\n"
     "RULES for domain_terms:\n"
-    "- Include CORE terms: 'public affairs', 'policy', 'political', "
-    "'legislation', 'advocacy', 'governance'\n"
+    "- Include SECTOR terms: 'public affairs', 'policy', 'political', "
+    "'legislation', 'advocacy', 'governance', 'public policy'\n"
     "- Include ORG types: 'NGO', 'international organization', 'public sector', "
     "'think tank', 'civil society', 'humanitarian', 'UN', 'WHO', 'UNDP'\n"
-    "- Include ROLE terms: 'trainee', 'assistant', 'coordinator', 'officer', "
-    "'intern', 'fellow', 'researcher'\n"
-    "- Include COMPOUND terms: 'political affairs', 'international affairs', "
-    "'public policy', 'foreign affairs', 'development cooperation', "
-    "'human rights', 'peace'\n"
-    "- Include TRANSFERABLE-SKILL roles that an IR graduate can do at ANY "
-    "company (not just NGOs): 'project coordination', 'stakeholder', "
-    "'client relations', 'account management', 'office management', "
-    "'communication', 'event coordination', 'partnership', 'liaison'\n"
-    "- NEVER use ultra-generic single words: 'team', 'experience', 'skills', "
-    "'work', 'data', 'services', 'management' (but 'project coordination' OK)\n"
+    "- Include DOMAIN-SPECIFIC role terms: 'policy officer', 'political affairs', "
+    "'international affairs', 'foreign affairs', 'human rights', 'diplomacy', "
+    "'development cooperation', 'peace'\n"
+    "- Include JUNIOR role terms: 'trainee', 'intern', 'fellow', 'graduate program'\n"
+    "- DO NOT include generic skill words that appear in ANY industry: "
+    "'communication', 'stakeholder', 'coordination', 'liaison', 'project "
+    "management', 'client relations', 'team', 'experience', 'data'\n"
     "- Include terms in French/German if standard in the field\n\n"
     "Reply with ONLY a JSON object, no markdown fences:\n"
     '{{"retrieval_keywords": ["...", "..."], "domain_terms": ["...", "..."]}}'
@@ -117,11 +113,7 @@ _FIELD_FALLBACKS: dict[str, DomainKeywords] = {
                       "public sector", "think tank", "civil society", "diplomatic",
                       "international development", "development cooperation",
                       "trainee", "assistant", "coordinator", "officer", "intern",
-                      "UN", "WHO", "UNDP", "UNHCR",
-                      # Transferable-skill roles at private companies
-                      "project coordination", "stakeholder", "client relations",
-                      "account management", "office management", "communication",
-                      "event coordination", "partnership", "liaison"],
+                      "UN", "WHO", "UNDP", "UNHCR"],
     ),
     "computer science": DomainKeywords(
         retrieval_keywords=["software engineer", "full stack developer",
