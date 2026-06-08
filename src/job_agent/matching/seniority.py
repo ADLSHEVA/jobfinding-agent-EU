@@ -30,6 +30,14 @@ _YEARS = re.compile(
     r"(\d{1,2})\s*\+?\s*(?:-\s*\d{1,2}\s*)?(?:years?|jahre[n]?|ans|anni|yrs?)\b",
     re.IGNORECASE)
 
+# Phrases that signal a seasoned hire even with no number and no senior-y title.
+_SENIOR_BODY = re.compile(
+    r"mehrj[äa]hrige|langj[äa]hrige|fundierte\s+(?:berufs|kenntniss)|"
+    r"einschl[äa]gige\s+berufserfahrung|proven\s+(?:track\s+record|experience)|"
+    r"extensive\s+experience|solid\s+experience|several\s+years|seasoned|"
+    r"experienced\s+professional|expérience\s+confirmée",
+    re.IGNORECASE)
+
 
 def required_years(text: str) -> int | None:
     """Lowest explicit years-of-experience requirement in ``text``, or None."""
@@ -45,11 +53,15 @@ def is_junior_friendly(title: str, description: str, max_years: float = 2.0) -> 
     a stated requirement above ``max_years`` (+1 grace year) rules it out.
     """
     title = title or ""
+    body = f"{title}\n{description or ''}"
     if _JUNIOR_TITLE.search(title):
         return True
     if _SENIOR_TITLE.search(title):
         return False
-    yrs = required_years(f"{title}\n{description or ''}")
+    yrs = required_years(body)
     if yrs is not None and yrs > max_years + 1:
+        return False
+    # No senior title and no explicit year count, but the body demands a seasoned hire.
+    if max_years < 2 and _SENIOR_BODY.search(body):
         return False
     return True

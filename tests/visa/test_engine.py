@@ -52,9 +52,17 @@ def test_german_degree_waives_priority_check() -> None:
     assert "no priority check" in result.path
 
 
-def test_silent_posting_is_not_filtered_out() -> None:
-    # No local degree, no signal: still viable (yellow), never dropped.
-    cand = CandidateProfile(nationality="IN", degree_country=None)
+def test_junior_without_local_degree_is_red() -> None:
+    # A non-EU junior without a local degree won't realistically be sponsored anywhere.
+    cand = CandidateProfile(nationality="IN", degree_country=None)  # years_experience=0
+    result = assess(cand, _job("DE", VisaSignal.unknown))
+    assert result.level is FeasibilityLevel.red
+    assert "junior" in result.path
+
+
+def test_experienced_without_local_degree_is_viable() -> None:
+    # With real experience, a low/medium-difficulty country is viable (employer files).
+    cand = CandidateProfile(nationality="IN", degree_country=None, years_experience=4)
     result = assess(cand, _job("DE", VisaSignal.unknown))
     assert result.level is FeasibilityLevel.yellow
     assert result.needs_employer_sponsorship is True

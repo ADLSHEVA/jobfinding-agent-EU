@@ -156,7 +156,26 @@ def assess(candidate: CandidateProfile, job: Job) -> FeasibilityResult:
             notes=notes,
         )
 
-    # Low/medium-difficulty country: viable but employer must file (e.g. Blue Card).
+    # A non-EU JUNIOR without a local degree is realistically unsponsorable for an
+    # entry-level role in ANY country: EU Blue Card salary thresholds are out of reach
+    # and employers rarely file a labour-market case for a junior. The realistic routes
+    # are their local-degree country (study-to-work), a post that explicitly advertises
+    # sponsorship, or an international organisation — all handled above.
+    if candidate.years_experience < 2:
+        return FeasibilityResult(
+            level=FeasibilityLevel.red,
+            needs_employer_sponsorship=True,
+            path=f"{rule.name}: junior + no local degree — sponsorship unrealistic",
+            notes=[
+                f"A non-EU junior without a {rule.name} degree is very unlikely to be "
+                "sponsored for an entry-level role here. Realistic routes: the country "
+                "where you studied (study-to-work), posts that advertise sponsorship, or "
+                "international organisations.",
+                rule.notes,
+            ],
+        )
+
+    # Experienced candidate, low/medium-difficulty country: viable but employer files.
     path = (
         f"{rule.name}: EU Blue Card / work permit (employer files)"
         if rule.blue_card_available

@@ -11,7 +11,8 @@ def _job(country: str, ext: str, signal: VisaSignal = VisaSignal.unknown, langs=
 
 
 def test_red_filtered_by_default_but_kept_on_request() -> None:
-    cand = CandidateProfile(nationality="IN", degree_country=None)  # non-EU, no local degree
+    # Experienced so DE is viable (yellow); CH (high difficulty, no local degree) → red.
+    cand = CandidateProfile(nationality="IN", degree_country=None, years_experience=4)
     jobs = [_job("DE", "1"), _job("CH", "2")]  # CH (no local degree) → red
 
     default = shortlist(cand, jobs)
@@ -22,7 +23,8 @@ def test_red_filtered_by_default_but_kept_on_request() -> None:
 
 
 def test_explicit_sponsorship_outranks_silent_posting() -> None:
-    cand = CandidateProfile(nationality="IN", degree_country=None)
+    # Experienced so the silent DE posting is viable (yellow), not red; sponsor still wins.
+    cand = CandidateProfile(nationality="IN", degree_country=None, years_experience=4)
     jobs = [_job("DE", "silent"), _job("DE", "sponsor", VisaSignal.explicit_yes)]
 
     ranked = shortlist(cand, jobs)

@@ -20,7 +20,7 @@ def test_eu_candidate_sees_all_green() -> None:
 def test_non_eu_without_local_degree_filters_red() -> None:
     cand = CandidateProfile(nationality="CN", degree_country=None)
     ids = {r.job.external_id for r in shortlist(cand, demo_jobs())}
-    # Red (filtered): 'de' (EU citizenship required) and 'dev' (CH, no signal, no Swiss degree).
-    assert "de" not in ids and "dev" not in ids
-    # Viable: explicit sponsorship (pa), intl-org bypass (who), and medium-route countries.
-    assert ids == {"pa", "who", "cz", "nl"}
+    # A non-EU junior without a local degree is only realistically viable where the
+    # employer advertises sponsorship (pa) or via an international organisation (who).
+    # Everything else — cz/nl/dev/de — is red (sponsorship unrealistic / blocked).
+    assert ids == {"pa", "who"}

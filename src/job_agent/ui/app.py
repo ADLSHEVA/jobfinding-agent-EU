@@ -36,6 +36,9 @@ from job_agent.ui.demo_data import demo_jobs
 
 # Languages the candidate can pick (ISO-639-1 -> label). Major European languages plus
 # Czech and Chinese, per the target audience.
+# Visa-feasibility tiebreak when two jobs are equally relevant (green above yellow).
+_LEVEL_RANK_UI = {"green": 2, "yellow": 1, "red": 0}
+
 _LANGS: dict[str, str] = {
     "en": "English", "de": "Deutsch (German)", "fr": "Français (French)",
     "it": "Italiano (Italian)", "es": "Español (Spanish)", "pt": "Português (Portuguese)",
@@ -351,10 +354,25 @@ def _render() -> None:
                     return False
                 return _eu_mode or r.job.country.upper() == _primary.upper()
 
-            display = [r for r in ranked if _passes(r)]
+            # Rank by a BLEND of relevance and visa feasibility, so:
+            #   • a relevant role where you qualify (🟢, e.g. local-degree advantage in
+            #     Switzerland) ranks above an equally-relevant one that needs sponsorship
+            #     (🟡), but
+            #   • an unrelated 🟢 role still can't outrank a clearly more-relevant one.
+            # Relevance dominates; the visa tier adds a moderate boost (not a hard tier,
+            # which previously let visa-easy-but-irrelevant jobs top the list).
+            _VISA_BOOST = {"green": 0.15, "yellow": 0.05, "red": 0.0}
+            display = sorted(
+                (r for r in ranked if _passes(r)),
+                key=lambda r: r.similarity + _VISA_BOOST[r.feasibility.level.value],
+                reverse=True)
             _partial_n = sum(1 for r in display if r.similarity < min_rel)
+            if not _embed_on:
+                st.warning("⚠️ Semantic matching is OFF — ranking is crude keyword overlap. "
+                           "Set EMBEDDING_API_KEY (Jina, free) in Secrets for accurate "
+                           "matching; otherwise unrelated roles can slip in.")
             st.caption(f"Showing {min(len(display), 50)} of {len(ranked)} found "
-                       f"({_partial_n} partial) · matching: "
+                       f"({_partial_n} partial), best match first · "
                        + ("semantic (Jina) ✅" if _embed_on else "keyword-only ⚠️")
                        + ". 🟢 you qualify · 🟡 employer sponsors · 🔴 blocked.")
         for i, r in enumerate(display[:50]):  # cap rendered cards — hundreds is too heavy
@@ -456,7 +474,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-x")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-z")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
