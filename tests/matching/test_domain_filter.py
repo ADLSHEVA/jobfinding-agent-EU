@@ -205,14 +205,30 @@ def test_filter_preserves_order() -> None:
 
 def test_ir_candidate_filters_out_it_jobs() -> None:
     """The core scenario: an international relations candidate should NOT see IT jobs."""
-    domain = ["public affairs", "policy", "EU legislation", "advocacy",
-              "stakeholder", "governance", "NGO", "international organization",
+    domain = ["public affairs", "policy", "political", "EU legislation",
+              "advocacy", "governance", "NGO", "international organization",
+              "international affairs", "public policy", "foreign affairs",
+              "humanitarian", "peace", "human rights", "diplomacy",
               "public sector", "think tank", "civil society", "diplomatic",
-              "international development", "trainee", "assistant", "coordinator"]
+              "international development", "development cooperation",
+              "trainee", "assistant", "coordinator", "officer", "intern"]
     jobs = [
         _job("good1", "Junior Policy Officer — EU Public Affairs",
              "Join our policy team to draft policy briefs, monitor EU legislation, "
-             "and support advocacy campaigns. Stakeholder engagement is key."),
+             "and support advocacy campaigns."),
+        _job("good2", "Trainee — International Development NGO",
+             "Support project coordination for international development programs. "
+             "Policy research, stakeholder mapping, advocacy for EU funding."),
+        _job("good3", "Research Assistant — Think Tank",
+             "Support policy research and analysis for a European think tank."),
+        _job("good4", "Coordinator — Civil Society Programme",
+             "Coordinate programme activities for a civil society organization."),
+        _job("good5", "Intern - Political Affairs",
+             "Assist in monitoring political developments, draft reports on "
+             "international affairs, support peace process coordination."),
+        _job("good6", "Junior Professional Officer - Human Rights",
+             "Support human rights monitoring, prepare background documents, "
+             "assist with advocacy and stakeholder engagement."),
         _job("bad1", "Software Engineer (International Team)",
              "We are looking for an international team player to join our engineering "
              "department. You will work on data analysis and cloud infrastructure."),
@@ -221,13 +237,6 @@ def test_ir_candidate_filters_out_it_jobs() -> None:
              "International environment with flexible working hours."),
         _job("bad3", "Data Analyst",
              "Work with large datasets. SQL, Python, Tableau. International company."),
-        _job("good2", "Trainee — International Development NGO",
-             "Support project coordination for international development programs. "
-             "Policy research, stakeholder mapping, advocacy for EU funding."),
-        _job("good3", "Research Assistant — Think Tank",
-             "Support policy research and analysis for a European think tank."),
-        _job("good4", "Coordinator — Civil Society Programme",
-             "Coordinate programme activities for a civil society organization."),
     ]
     filtered = filter_by_domain(jobs, domain)
     ids = [j.external_id for j in filtered]
@@ -235,6 +244,8 @@ def test_ir_candidate_filters_out_it_jobs() -> None:
     assert "good2" in ids
     assert "good3" in ids
     assert "good4" in ids
+    assert "good5" in ids
+    assert "good6" in ids
     assert "bad1" not in ids
     assert "bad2" not in ids
     assert "bad3" not in ids

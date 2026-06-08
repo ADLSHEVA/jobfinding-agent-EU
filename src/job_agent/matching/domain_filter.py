@@ -41,17 +41,21 @@ _PROMPT_TEMPLATE = (
     '1. "retrieval_keywords": 3-5 keywords/phrases for job-board search queries. '
     "These must maximize recall for relevant roles while MINIMIZING noise from "
     "unrelated fields (especially IT, software engineering, data science, finance).\n"
-    '2. "domain_terms": 6-10 short phrases (1-3 words each) that a relevant '
+    '2. "domain_terms": 8-12 short phrases (1-3 words each) that a relevant '
     "job posting MIGHT contain.  Be INCLUSIVE — include BOTH core domain terms "
     "AND broader adjacent terms.  A junior trainee posting at an NGO or public "
     "institution will not always use the same vocabulary as a senior role.\n\n"
     "RULES for domain_terms:\n"
     "- Include CORE terms (the heart of the field): e.g. 'public affairs', "
-    "'policy', 'legislation', 'advocacy'\n"
+    "'policy', 'political', 'legislation', 'advocacy', 'governance'\n"
     "- Include BROADER terms (adjacent fields, org types): e.g. 'NGO', "
-    "'international organization', 'public sector', 'think tank', 'civil society'\n"
+    "'international organization', 'public sector', 'think tank', 'civil society', "
+    "'humanitarian', 'peace', 'human rights', 'diplomacy'\n"
     "- Include ROLE terms (common junior titles): e.g. 'trainee', 'assistant', "
-    "'coordinator', 'officer', 'researcher'\n"
+    "'coordinator', 'officer', 'researcher', 'intern', 'fellow'\n"
+    "- Include FIELD-SPECIFIC compound terms: e.g. 'political affairs', "
+    "'international affairs', 'public policy', 'foreign affairs', "
+    "'development cooperation'\n"
     "- NEVER use ultra-generic single words: 'team', 'communication', "
     "'experience', 'skills', 'work', 'data', 'services'\n"
     "- Include terms in French/German if standard in the field\n\n"
@@ -98,11 +102,14 @@ def _parse_response(raw: str) -> DomainKeywords:
 _FIELD_FALLBACKS: dict[str, DomainKeywords] = {
     "international relations": DomainKeywords(
         retrieval_keywords=["public affairs", "EU policy", "international development",
-                            "diplomacy", "advocacy specialist"],
-        domain_terms=["public affairs", "policy", "EU legislation", "advocacy",
-                      "stakeholder", "governance", "NGO", "international organization",
+                            "diplomacy", "advocacy specialist", "political affairs"],
+        domain_terms=["public affairs", "policy", "political", "EU legislation",
+                      "advocacy", "governance", "NGO", "international organization",
+                      "international affairs", "public policy", "foreign affairs",
+                      "humanitarian", "peace", "human rights", "diplomacy",
                       "public sector", "think tank", "civil society", "diplomatic",
-                      "international development", "trainee", "assistant", "coordinator"],
+                      "international development", "development cooperation",
+                      "trainee", "assistant", "coordinator", "officer", "intern"],
     ),
     "computer science": DomainKeywords(
         retrieval_keywords=["software engineer", "full stack developer",
@@ -184,13 +191,26 @@ def passes_domain_filter(
 ) -> bool:
     """Whether a job posting contains at least ``min_hits`` domain terms.
 
-    Case-insensitive substring match.  A job with zero domain hits is from the
-    wrong industry entirely and should not appear in the results.
+    Multi-word terms (e.g. "public affairs") are matched as complete phrases
+    to avoid false positives from generic single words like "international"
+    matching unrelated contexts ("international team" at a tech company).
+    Single-word terms use word-boundary matching for the same reason.
     """
     if not domain_terms:
         return True  # no filter → everything passes
     text = f"{job.title} {job.description}".lower()
-    hits = sum(1 for term in domain_terms if term.lower() in text)
+    hits = 0
+    for term in domain_terms:
+        t = term.lower()
+        if " " in t:
+            # Multi-word: exact phrase match (substring is fine for compounds)
+            if t in text:
+                hits += 1
+        else:
+            # Single word: word-boundary match to avoid substring false positives
+            # e.g. "policy" should match "policy brief" but not "policyholder"
+            if re.search(r"\b" + re.escape(t) + r"\b", text):
+                hits += 1
     return hits >= min_hits
 
 
