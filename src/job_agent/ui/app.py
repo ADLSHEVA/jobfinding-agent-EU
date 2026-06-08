@@ -246,7 +246,7 @@ def _render() -> None:
             # All of Europe: ONE broad sweep (no city filter → Brave finds companies
             # widely, only ~6 calls), then keep everything located in a supported country.
             try:
-                result = _scout(cities=1, cap=80).run(
+                result = _scout(cities=1, cap=20).run(
                     ScoutQuery(DiscoveryQuery(country=None, keywords=keywords)))
                 all_jobs.extend(keep_jobs_in_europe(result.jobs))
                 errors.extend(result.errors)
@@ -254,7 +254,7 @@ def _render() -> None:
                 errors.append(f"Europe-wide scout failed: {exc}")
         else:
             countries = [c.upper() for c in live_countries][:4] or ["CH"]
-            per_country = max(20, 80 // len(countries))  # bound total fetch
+            per_country = max(10, 20 // len(countries))  # bound total fetch
             for country in countries:
                 try:
                     result = _scout(cities=2, cap=per_country).run(

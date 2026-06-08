@@ -38,16 +38,14 @@ _PROMPT_TEMPLATE = (
     "- Skills: {skills}\n"
     "- Experience: {experience}\n\n"
     "Generate TWO sets of search terms:\n\n"
-    '1. "retrieval_keywords": 5-8 search queries for job boards. MIX of:\n'
-    "   a) Specific job titles: 'junior policy officer', 'public affairs "
-    "trainee', 'political affairs intern'\n"
-    "   b) Broader skill-based queries with junior qualifier: 'junior "
-    "advocacy NGO', 'trainee international development', 'graduate "
-    "programme EU affairs'\n"
-    "   c) International-org queries: 'UN intern', 'WHO trainee', "
-    "'NGO programme assistant'\n"
-    "   Each query MUST include 'junior' or 'trainee' or 'intern' or "
-    "'graduate' or 'assistant' to target entry-level roles.\n\n"
+    '1. "retrieval_keywords": 3-5 BROAD search queries for job boards. '
+    "These are used as the 'what' parameter in job-board APIs (Adzuna, "
+    "JSearch, JobRoom). They must be BROAD enough to return results — "
+    "specific job titles like 'junior policy officer' return 0 results "
+    "on Swiss job boards. Use 1-2 word queries:\n"
+    "   Examples: 'public affairs', 'policy trainee', 'international "
+    "affairs', 'NGO intern', 'advocacy junior'\n"
+    "   Include at least one query with 'trainee' or 'intern' or 'junior'.\n\n"
     '2. "domain_terms": 8-12 short phrases that identify the INDUSTRY/SECTOR '
     "of a relevant posting. Used as a post-retrieval relevance gate.\n\n"
     "RULES for domain_terms:\n"
@@ -103,9 +101,8 @@ def _parse_response(raw: str) -> DomainKeywords:
 
 _FIELD_FALLBACKS: dict[str, DomainKeywords] = {
     "international relations": DomainKeywords(
-        retrieval_keywords=["junior policy officer", "public affairs trainee",
-                            "political affairs intern", "NGO programme assistant",
-                            "junior advocacy officer", "international development trainee"],
+        retrieval_keywords=["public affairs", "policy trainee",
+                            "international affairs", "NGO intern", "advocacy junior"],
         domain_terms=["public affairs", "policy", "political", "EU legislation",
                       "advocacy", "governance", "NGO", "international organization",
                       "international affairs", "public policy", "foreign affairs",
