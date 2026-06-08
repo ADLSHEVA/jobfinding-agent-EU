@@ -106,10 +106,11 @@ class ScoutAgent:
             try:
                 jobs.extend(self._ats_fetch(company, self._http_get))
             except SourceHTTPError as exc:
-                # A discovered handle that 404s/410s simply has no board there — a
-                # routine discovery miss, not an error worth showing the user. Only
-                # surface genuine failures (auth, server errors, etc.).
-                if exc.status not in (404, 410):
+                # Routine, non-actionable misses we shouldn't show the user:
+                #   404/410 — the discovered handle has no board there.
+                #   429     — the ATS rate-limited us (transient; re-run later).
+                # Only surface genuine failures (auth, 5xx, etc.).
+                if exc.status not in (404, 410, 429):
                     errors.append(f"{company.name} [{company.ats}]: HTTP {exc.status}")
             except Exception as exc:  # noqa: BLE001 - one company must not abort the rest
                 errors.append(f"{company.name} [{company.ats}]: {type(exc).__name__}: {exc}")

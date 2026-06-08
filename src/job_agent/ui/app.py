@@ -200,18 +200,35 @@ def _render() -> None:
         if ranked is None:
             st.info("Set your profile in the sidebar, choose a source, then click "
                     "**🔍 Find / refresh jobs**.")
+            display = []
         else:
-            st.caption(f"{len(ranked)} viable jobs, ranked by visa feasibility then CV relevance "
-                       f"(showing top {min(len(ranked), 50)}).")
-        for i, r in enumerate((ranked or [])[:50]):  # cap rendered cards — hundreds is too heavy
+            viable_only = st.checkbox(
+                "✅ Only show jobs I can realistically take (hide 🔴 blocked visa routes)",
+                value=True, key="wdg_viable_only")
+            display = [r for r in ranked
+                       if not (viable_only and r.feasibility.level.value == "red")]
+            st.caption(f"Showing {min(len(display), 50)} of {len(ranked)} found · ranked by visa "
+                       f"feasibility, then CV relevance. 🟢 = you qualify · 🟡 = employer must "
+                       f"sponsor · 🔴 = blocked for your profile.")
+        for i, r in enumerate(display[:50]):  # cap rendered cards — hundreds is too heavy
             job = r.job
             uid = f"{i}-{job.source}-{job.external_id}"  # UNIQUE key (ids repeat across sources)
             emoji = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[r.feasibility.level.value]
             with st.expander(f"{emoji} {job.title} · {job.company} · {job.city}, {job.country}  "
                              f"— score {r.score} (sim {r.similarity})"):
-                st.write(f"**Visa path:** {r.feasibility.path}")
-                st.write(f"**Sponsorship needed:** {r.feasibility.needs_employer_sponsorship} · "
-                         f"**Signal:** {job.visa_signal.value} · **Track:** {job.track.value}")
+                # Plain-language visa status for a non-technical candidate.
+                lvl = r.feasibility.level.value
+                if lvl == "red":
+                    st.error(f"🔴 **Hard for your profile** — {r.feasibility.path}")
+                elif r.feasibility.needs_employer_sponsorship:
+                    st.warning(f"🟡 **Viable, but the employer must sponsor a work permit** — "
+                               f"{r.feasibility.path}")
+                else:
+                    st.success(f"🟢 **You qualify directly — no employer sponsorship needed** — "
+                               f"{r.feasibility.path}")
+                for _note in r.feasibility.notes:
+                    if _note:
+                        st.caption(f"↳ {_note}")
                 st.write(job.description)
                 if job.url:
                     # Deep-link straight to the real posting on the company's ATS /
@@ -290,7 +307,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-m")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-n")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
