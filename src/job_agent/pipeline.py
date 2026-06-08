@@ -20,6 +20,7 @@ from job_agent.observability import ObservabilityStore
 from job_agent.persistence import JobStore
 from job_agent.sources import HttpGet
 from job_agent.sources.aggregators import (
+    AdzunaSource,
     ArbeitsagenturSource,
     CzechMpsvSource,
     JobRoomSource,
@@ -51,6 +52,8 @@ def build_live_scout(
     intl_org_iso3: list[str] | None = None,
     reliefweb_appname: str = "",
     rapidapi_key: str = "",
+    adzuna_app_id: str = "",
+    adzuna_app_key: str = "",
 ) -> ScoutAgent:
     """Wire the discovery engine + Layer-1 aggregators + Track-B into one ScoutAgent.
 
@@ -78,6 +81,11 @@ def build_live_scout(
     # ATS boards — added only when a RapidAPI key is configured.
     if rapidapi_key:
         board_sources.append(JSearchSource(http_json, api_key=rapidapi_key))
+    # Adzuna — European aggregator with structured search, salary data, and location
+    # scoping across CH/DE/AT/FR/NL/BE/IT/PL/CZ.  Free API at developer.adzuna.com.
+    if adzuna_app_id and adzuna_app_key:
+        board_sources.append(AdzunaSource(http_json, app_id=adzuna_app_id,
+                                          app_key=adzuna_app_key))
     return ScoutAgent(
         http_get=http_get,
         discoverers=discoverers,

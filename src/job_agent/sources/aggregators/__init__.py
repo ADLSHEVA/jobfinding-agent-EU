@@ -9,11 +9,12 @@
   commercial boards (jobs.ch / jobup.ch) need a partnership and are out of scope here.
 """
 
+from job_agent.sources.aggregators.adzuna import AdzunaSource
 from job_agent.sources.aggregators.arbeitsagentur import ArbeitsagenturSource
 from job_agent.sources.aggregators.czech_mpsv import CzechMpsvSource
 from job_agent.sources.aggregators.eures import EuresSource
 from job_agent.sources.aggregators.jobroom import JobRoomSource
 from job_agent.sources.aggregators.jsearch import JSearchSource
 
-__all__ = ["ArbeitsagenturSource", "CzechMpsvSource", "EuresSource", "JobRoomSource",
-           "JSearchSource"]
+__all__ = ["AdzunaSource", "ArbeitsagenturSource", "CzechMpsvSource", "EuresSource",
+           "JobRoomSource", "JSearchSource"]

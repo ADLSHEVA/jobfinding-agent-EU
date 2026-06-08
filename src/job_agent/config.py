@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # countries incl. Czechia. Free key at https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
     rapidapi_key: str = Field(default="")
 
+    # Adzuna — European job aggregator with structured search, salary data, and
+    # location scoping.  Covers CH, DE, AT, FR, NL, BE, IT, PL, CZ.  Free API
+    # key at https://developer.adzuna.com
+    adzuna_app_id: str = Field(default="")
+    adzuna_app_key: str = Field(default="")
+
     # Keyword extraction LLM (cheap/fast, e.g. Mistral-small) — used to extract
     # domain-specific search terms from the candidate profile.  Separate from the
     # main LLM (DeepSeek) so keyword extraction doesn't compete with CV parsing /

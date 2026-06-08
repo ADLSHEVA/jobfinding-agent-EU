@@ -238,7 +238,9 @@ def _render() -> None:
                 seeds=seeds, search_fn=search_fn,
                 search_cities=cities, search_max_companies=cap,
                 reliefweb_appname=settings.reliefweb_appname,
-                rapidapi_key=settings.rapidapi_key, obs=obs)
+                rapidapi_key=settings.rapidapi_key,
+                adzuna_app_id=settings.adzuna_app_id,
+                adzuna_app_key=settings.adzuna_app_key, obs=obs)
 
         if "EU" in [c.upper() for c in live_countries]:
             # All of Europe: ONE broad sweep (no city filter → Brave finds companies
