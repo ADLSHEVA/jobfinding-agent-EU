@@ -1,7 +1,9 @@
 # Runtime deps for Streamlit Community Cloud (the deployed UI). Scrapling is
 # intentionally excluded — Live mode doesn't crawl career pages, and Cloud can't run
 # the Playwright browsers anyway.
-streamlit>=1.36
+streamlit==1.44.1   # PINNED: 1.5x rewrote the server from Tornado to Starlette/Uvicorn,
+                    # which white-screens on every rerun (button click) on Community Cloud.
+                    # 1.44.1 is the last stable Tornado-based line that supports Python 3.13.
 pydantic>=2.7
 pydantic-settings>=2.3
 certifi>=2024.0
