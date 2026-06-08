@@ -1,9 +1,14 @@
 """ReliefWeb jobs adapter (Track B).
 
-Public API: ``https://api.reliefweb.int/v1/jobs`` (JSON, no auth). Returns UN / NGO
+Public API: ``https://api.reliefweb.int/v2/jobs`` (JSON, no auth). Returns UN / NGO
 / humanitarian roles worldwide; we filter by country (e.g. CHE for Geneva) and tag
 them ``track=intl_org`` so the visa engine applies the international-organisation
 legal route (host-country legitimation, not a national work permit).
+
+Since 2025-11-01 ReliefWeb requires a PRE-APPROVED ``appname`` (register a short form
+at https://reliefweb.int/help/api). An unregistered appname returns HTTP 403, so the
+``ReliefWebSource`` below is skipped unless an approved appname is configured
+(``RELIEFWEB_APPNAME`` secret / env). v1 was decommissioned (HTTP 410).
 """
 
 import json
@@ -32,10 +37,13 @@ def _employment_from_type(type_name: str, title: str) -> EmploymentType:
 
 
 class ReliefWebAdapter:
+    def __init__(self, appname: str = "eu-job-agent") -> None:
+        self._appname = appname or "eu-job-agent"
+
     def feed_url(self, country_iso3: str, limit: int = 50) -> str:
         return (
-            "https://api.reliefweb.int/v1/jobs"
-            f"?appname=eu-job-agent&limit={limit}"
+            "https://api.reliefweb.int/v2/jobs"
+            f"?appname={self._appname}&limit={limit}"
             "&fields[include][]=title&fields[include][]=source&fields[include][]=country"
             "&fields[include][]=city&fields[include][]=url&fields[include][]=type"
             "&fields[include][]=body"
@@ -95,12 +103,19 @@ class ReliefWebSource:
 
     name = "reliefweb"
 
-    def __init__(self, http: HttpJson, iso3: list[str] | None = None) -> None:
+    def __init__(self, http: HttpJson, iso3: list[str] | None = None,
+                 appname: str = "") -> None:
         self._http = http
         self._iso3 = iso3 or ["CHE"]
-        self._adapter = ReliefWebAdapter()
+        self._appname = appname
+        self._adapter = ReliefWebAdapter(appname or "eu-job-agent")
 
     def fetch(self, query: DiscoveryQuery) -> list[Job]:
+        # ReliefWeb requires a pre-approved appname since 2025-11-01; without one the
+        # API 403s. Skip cleanly rather than spamming the UI with errors. Register at
+        # https://reliefweb.int/help/api and set RELIEFWEB_APPNAME to enable.
+        if not self._appname:
+            return []
         if query.country:
             countries = [_ISO2_TO_ISO3.get(query.country.upper(), query.country.upper())]
         else:

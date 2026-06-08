@@ -28,7 +28,8 @@ def test_build_live_scout_fetches_ats_seed_and_board_sources() -> None:
 
     store = InMemoryJobStore()
     scout = build_live_scout(http_get=http_get, http_json=http_json, http_post=http_post,
-                             seeds=[seed], store=store, intl_org_iso3=["CHE"])
+                             seeds=[seed], store=store, intl_org_iso3=["CHE"],
+                             reliefweb_appname="test")
     result = scout.run(ScoutQuery(DiscoveryQuery(country="CZ")))
 
     titles = {j.title for j in result.jobs}

@@ -19,7 +19,7 @@ from job_agent.models.company import CompanyTarget
 from job_agent.observability import ObservabilityStore
 from job_agent.persistence import JobStore
 from job_agent.sources import HttpGet
-from job_agent.sources.aggregators import ArbeitsagenturSource, EuresSource, JobRoomSource
+from job_agent.sources.aggregators import ArbeitsagenturSource, JobRoomSource
 from job_agent.sources.board import HttpJson
 from job_agent.sources.intl_org import ReliefWebSource
 from job_agent.visa.signal import VisaSignalClassifier
@@ -44,6 +44,7 @@ def build_live_scout(
     obs: ObservabilityStore | None = None,
     classifier: VisaSignalClassifier | None = None,
     intl_org_iso3: list[str] | None = None,
+    reliefweb_appname: str = "",
 ) -> ScoutAgent:
     """Wire the discovery engine + Layer-1 aggregators + Track-B into one ScoutAgent.
 
@@ -57,11 +58,14 @@ def build_live_scout(
     if search_fn is not None:
         discoverers.append(AtsSearchDiscoverer(
             search_fn, cities=search_cities, max_companies=search_max_companies))
+    # EURES is intentionally omitted: its public endpoint now 404s (dead). JobRoom
+    # (Switzerland's official PES) + ATS discovery cover CH; Arbeitsagentur covers DE.
+    # ReliefWeb (Track-B intl orgs) only runs when a pre-approved appname is configured.
     board_sources = [
         ArbeitsagenturSource(http_json),
-        EuresSource(http_json),
         JobRoomSource(http_post),  # Job-Room uses POST
-        ReliefWebSource(http_json, iso3=intl_org_iso3 or _INTL_ORG_HUBS),
+        ReliefWebSource(http_json, iso3=intl_org_iso3 or _INTL_ORG_HUBS,
+                        appname=reliefweb_appname),
     ]
     return ScoutAgent(
         http_get=http_get,

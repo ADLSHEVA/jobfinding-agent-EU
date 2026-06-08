@@ -37,7 +37,8 @@ def test_geneva_ir_graduate_gets_ranked_visa_aware_shortlist() -> None:
     agent = ScoutAgent(
         http_get=lambda url: _PA_XML,  # Track A: the public-affairs ATS feed
         discoverers=[SeedDiscoverer(SWISS_SEEDS)],
-        board_sources=[ReliefWebSource(http=lambda url, headers=None: _RELIEFWEB, iso3=["CHE"])],
+        board_sources=[ReliefWebSource(http=lambda url, headers=None: _RELIEFWEB, iso3=["CHE"],
+                                        appname="test")],
         classifier=VisaSignalClassifier(),  # keyword-only (offline) visa tagging
     )
 

@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # Brave Search API — used to resolve company name -> website for brute-force crawl.
     brave_api_key: str = Field(default="")
 
+    # ReliefWeb (Track-B intl-org jobs). Since 2025-11-01 the API requires a
+    # PRE-APPROVED appname (register at https://reliefweb.int/help/api). Without one,
+    # the ReliefWeb source is skipped silently. Set this once approved to enable it.
+    reliefweb_appname: str = Field(default="")
+
     @property
     def zefix_auth_header(self) -> str | None:
         if not (self.zefix_username and self.zefix_password):

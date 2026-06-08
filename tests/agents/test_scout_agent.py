@@ -37,7 +37,8 @@ def test_scout_runs_both_tracks_and_persists() -> None:
     store, obs = InMemoryJobStore(), InMemoryObservability()
     seeds = SeedDiscoverer([_company("acme", industry="IT")])
     # Track A companies use the agent's http_get; the board source carries its own.
-    reliefweb = ReliefWebSource(http=lambda url, headers=None: _RELIEFWEB, iso3=["CHE"])
+    reliefweb = ReliefWebSource(http=lambda url, headers=None: _RELIEFWEB, iso3=["CHE"],
+                                appname="test")
     agent = ScoutAgent(
         http_get=_router({"personio": _PERSONIO}),
         discoverers=[seeds],

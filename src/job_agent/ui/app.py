@@ -148,6 +148,7 @@ def _render() -> None:
             search_fn=brave_search_fn(settings),  # the discovery engine (if BRAVE_API_KEY set)
             search_cities=2,           # lighter on cloud memory + Brave quota than the default 3
             search_max_companies=40,   # bound the fetch so the cloud app doesn't run out of memory
+            reliefweb_appname=settings.reliefweb_appname,  # Track-B intl orgs (if registered)
             obs=obs,
         )
         query = ScoutQuery(DiscoveryQuery(
