@@ -64,12 +64,18 @@ def shortlist(
     similarity: Similarity = lexical_similarity,
 ) -> list[RankedJob]:
     """Assess + score every job, then sort by (feasibility tier, content score)."""
+    # Batch-embed up front when the scorer supports it (semantic): one API round per ~96
+    # jobs instead of one call per job — the difference between seconds and minutes on a
+    # Europe-wide result set. Lexical scoring is local, so the per-job path is fine.
+    score_all = getattr(similarity, "score_all", None)
+    sims = score_all(candidate, jobs) if callable(score_all) else None
+
     ranked: list[RankedJob] = []
-    for job in jobs:
+    for i, job in enumerate(jobs):
         feasibility = assess(candidate, job)
         if feasibility.level is FeasibilityLevel.red and not include_red:
             continue
-        sim = similarity(candidate, job)
+        sim = sims[i] if sims is not None else similarity(candidate, job)
         ranked.append(RankedJob(job, feasibility, round(sim, 3), content_score(candidate, job, sim)))
     ranked.sort(key=lambda r: (_LEVEL_RANK[r.feasibility.level], r.score), reverse=True)
     return ranked

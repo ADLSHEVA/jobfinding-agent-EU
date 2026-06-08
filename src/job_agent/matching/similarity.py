@@ -63,12 +63,31 @@ class SemanticSimilarity:
     def __init__(self, embedder: Embedder) -> None:
         self._embedder = embedder
 
+    @staticmethod
+    def _cv_text(candidate: CandidateProfile) -> str:
+        return (f"{candidate.field}. Skills: {', '.join(candidate.skills)}."
+                f" Experience: {candidate.experience}")
+
     def __call__(self, candidate: CandidateProfile, job: Job) -> float:
-        cv_text = (f"{candidate.field}. Skills: {', '.join(candidate.skills)}."
-                   f" Experience: {candidate.experience}")
-        job_text = f"{job.title}. {job.description}"
         try:
-            vectors = self._embedder.embed([cv_text, job_text])
+            vectors = self._embedder.embed([self._cv_text(candidate),
+                                            f"{job.title}. {job.description}"])
         except Exception:  # noqa: BLE001 - a transient embedding failure must not crash ranking
             return 0.0
         return max(0.0, cosine(vectors[0], vectors[1]))
+
+    def score_all(self, candidate: CandidateProfile, jobs: list[Job]) -> list[float]:
+        """Embed the CV once and all jobs in BATCHES — one API round per ~96 jobs instead
+        of one per job. ``shortlist`` calls this when present, which is the difference
+        between ~4 requests and several hundred for a Europe-wide result set."""
+        if not jobs:
+            return []
+        job_texts = [f"{j.title}. {j.description}" for j in jobs]
+        try:
+            cv_vec = self._embedder.embed([self._cv_text(candidate)])[0]
+            vecs: list[list[float]] = []
+            for i in range(0, len(job_texts), 96):  # chunk to stay within provider limits
+                vecs.extend(self._embedder.embed(job_texts[i:i + 96]))
+        except Exception:  # noqa: BLE001 - embeddings down → caller falls back to lexical
+            return [lexical_similarity(candidate, j) for j in jobs]
+        return [max(0.0, cosine(cv_vec, v)) for v in vecs]

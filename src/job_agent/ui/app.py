@@ -243,7 +243,7 @@ def _render() -> None:
             # All of Europe: ONE broad sweep (no city filter → Brave finds companies
             # widely, only ~6 calls), then keep everything located in a supported country.
             try:
-                result = _scout(cities=1, cap=130).run(
+                result = _scout(cities=1, cap=80).run(
                     ScoutQuery(DiscoveryQuery(country=None, keywords=keywords)))
                 all_jobs.extend(keep_jobs_in_europe(result.jobs))
                 errors.extend(result.errors)
@@ -281,7 +281,8 @@ def _render() -> None:
         if st.button("🔍 Find / refresh jobs", type="primary", key="btn_find_jobs"):
             from job_agent.matching import default_similarity
 
-            with st.spinner("Working… Live mode discovers companies via search; can take a minute."):
+            with st.spinner("Working… Live mode searches companies across Europe and ranks "
+                            "them — this usually takes 1–2 minutes."):
                 found, errs = _load_jobs()
                 try:
                     st.session_state.ranked = shortlist(profile, found,
@@ -454,7 +455,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-u")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-v")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.

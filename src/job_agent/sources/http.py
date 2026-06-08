@@ -44,7 +44,7 @@ def urllib_http(url: str, headers: Mapping[str, str] | None = None) -> str:
 
     req = urllib.request.Request(url, headers=dict(headers or {}), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=30, context=_context()) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=12, context=_context()) as resp:  # noqa: S310
             return resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
@@ -60,7 +60,7 @@ def urllib_post(url: str, body: dict, headers: Mapping[str, str] | None = None) 
     hdrs = {"Content-Type": "application/json", "Accept": "application/json", **dict(headers or {})}
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=hdrs, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=30, context=_context()) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=12, context=_context()) as resp:  # noqa: S310
             return resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         msg = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
