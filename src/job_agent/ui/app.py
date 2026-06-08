@@ -15,6 +15,14 @@ import os
 
 import streamlit as st
 
+# ``set_page_config`` MUST be the very first Streamlit call in the script, before
+# *any* other ``st.*`` access (including ``st.secrets``). Touching ``st.secrets``
+# first makes Streamlit treat a command as already issued and raises
+# ``StreamlitSetPageConfigMustBeFirstCommand`` here — which blanked the page on
+# Community Cloud (the page title never set, body never rendered).
+st.set_page_config(page_title="EU Job Agent", layout="wide")
+st.caption("build 2026-06-08-i")  # version heartbeat: if you see this, the latest code is live
+
 # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env in
 # the repo). Mirror them into the environment so pydantic-settings (config.py) reads
 # them. Locally this is a no-op (there is no secrets file; .env is used instead).
@@ -32,9 +40,6 @@ from job_agent.observability import InMemoryObservability, start_run  # noqa: E4
 from job_agent.tracker import Tracker  # noqa: E402
 from job_agent.tracker.state_machine import ALLOWED_TRANSITIONS  # noqa: E402
 from job_agent.ui.demo_data import demo_jobs  # noqa: E402
-
-st.set_page_config(page_title="EU Job Agent", layout="wide")
-st.caption("build 2026-06-07-h")  # version heartbeat: if you see this, the latest code is live
 
 
 def _application_store():
