@@ -10,8 +10,10 @@
 """
 
 from job_agent.sources.aggregators.arbeitsagentur import ArbeitsagenturSource
+from job_agent.sources.aggregators.czech_mpsv import CzechMpsvSource
 from job_agent.sources.aggregators.eures import EuresSource
 from job_agent.sources.aggregators.jobroom import JobRoomSource
 from job_agent.sources.aggregators.jsearch import JSearchSource
 
-__all__ = ["ArbeitsagenturSource", "EuresSource", "JobRoomSource", "JSearchSource"]
+__all__ = ["ArbeitsagenturSource", "CzechMpsvSource", "EuresSource", "JobRoomSource",
+           "JSearchSource"]

@@ -19,7 +19,12 @@ from job_agent.models.company import CompanyTarget
 from job_agent.observability import ObservabilityStore
 from job_agent.persistence import JobStore
 from job_agent.sources import HttpGet
-from job_agent.sources.aggregators import ArbeitsagenturSource, JobRoomSource, JSearchSource
+from job_agent.sources.aggregators import (
+    ArbeitsagenturSource,
+    CzechMpsvSource,
+    JobRoomSource,
+    JSearchSource,
+)
 from job_agent.sources.board import HttpJson
 from job_agent.sources.intl_org import ReliefWebSource
 from job_agent.visa.signal import VisaSignalClassifier
@@ -64,7 +69,8 @@ def build_live_scout(
     # ReliefWeb (Track-B intl orgs) only runs when a pre-approved appname is configured.
     board_sources = [
         ArbeitsagenturSource(http_json),
-        JobRoomSource(http_post),  # Job-Room uses POST
+        JobRoomSource(http_post),  # Job-Room uses POST (Switzerland's official PES)
+        CzechMpsvSource(http_json),  # Czech official PES open data (incl. non-EU-friendly)
         ReliefWebSource(http_json, iso3=intl_org_iso3 or _INTL_ORG_HUBS,
                         appname=reliefweb_appname),
     ]
