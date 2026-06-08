@@ -26,6 +26,7 @@ import streamlit as st
 from job_agent.config import get_settings
 from job_agent.matching import shortlist
 from job_agent.matching.language import candidate_can_read
+from job_agent.matching.seniority import is_junior_friendly
 from job_agent.models.application import ApplicationStatus
 from job_agent.models.candidate import CandidateProfile, Track
 from job_agent.observability import InMemoryObservability, start_run
@@ -49,6 +50,16 @@ _COUNTRIES: dict[str, str] = {
     "CH": "🇨🇭 Switzerland (Geneva)", "BE": "🇧🇪 Belgium (Brussels / EU)",
     "NL": "🇳🇱 Netherlands (The Hague)", "DE": "🇩🇪 Germany", "AT": "🇦🇹 Austria (Vienna)",
     "FR": "🇫🇷 France", "IT": "🇮🇹 Italy (Rome)", "PL": "🇵🇱 Poland", "CZ": "🇨🇿 Czechia",
+}
+
+# Degree-granting country (the single biggest lever on visa feasibility — a *local*
+# degree unlocks the labour market). "" = no European degree (e.g. studied at home).
+_DEGREE_COUNTRIES: dict[str, str] = {
+    "": "— none / non-European degree —",
+    "CH": "🇨🇭 Switzerland", "DE": "🇩🇪 Germany", "AT": "🇦🇹 Austria", "NL": "🇳🇱 Netherlands",
+    "BE": "🇧🇪 Belgium", "FR": "🇫🇷 France", "IT": "🇮🇹 Italy", "ES": "🇪🇸 Spain",
+    "PL": "🇵🇱 Poland", "CZ": "🇨🇿 Czechia", "SE": "🇸🇪 Sweden", "DK": "🇩🇰 Denmark",
+    "IE": "🇮🇪 Ireland", "GB": "🇬🇧 United Kingdom",
 }
 
 
@@ -107,8 +118,13 @@ def _render() -> None:
     # DuplicateWidgetID or a silent white-screen.  (See commit f04e55f.)
     st.sidebar.header("Candidate")
     nationality = st.sidebar.text_input("Nationality (ISO-2)", value="CN", key="wdg_nationality")
-    degree_country = st.sidebar.text_input("Degree country (ISO-2, or blank)", value="CH",
-                                           key="wdg_degree_country")
+    degree_country = st.sidebar.selectbox(
+        "Degree country", options=list(_DEGREE_COUNTRIES),
+        index=list(_DEGREE_COUNTRIES).index("CH"),
+        format_func=lambda c: _DEGREE_COUNTRIES[c], key="wdg_degree_country",
+        help="The country that granted your highest relevant degree — the single biggest "
+             "lever on visa feasibility. A local degree usually unlocks the labour market "
+             "(e.g. a Swiss degree exempts the priority check in Switzerland).")
     field = st.sidebar.text_input("Field", value="international relations", key="wdg_field")
     skills_raw = st.sidebar.text_area("Skills (comma-separated)",
                                       value="policy analysis, advocacy, stakeholder engagement",
@@ -120,6 +136,12 @@ def _render() -> None:
              "don't read (e.g. German-only Swiss vacancies).")
     track_choices = st.sidebar.multiselect("Tracks", ["private", "intl_org"],
                                            default=["private", "intl_org"], key="wdg_tracks")
+    years_exp = st.sidebar.number_input(
+        "Years of work experience", min_value=0.0, max_value=40.0, value=0.0, step=0.5,
+        key="wdg_years_exp",
+        help="Drives the junior-friendly filter: postings demanding clearly more than "
+             "this (or senior-titled: Head/Lead/Director…) are hidden. Internships count "
+             "lightly — a fresh graduate is ~0.")
 
     if llm_enabled:
         cv_text = st.sidebar.text_area("…or paste a CV and parse it", height=120, key="wdg_cv_text")
@@ -139,10 +161,11 @@ def _render() -> None:
 
     profile = CandidateProfile(
         nationality=nationality.strip().upper(),
-        degree_country=degree_country.strip().upper() or None,
+        degree_country=(degree_country or "").strip().upper() or None,
         field=field.strip(),
         skills=[s.strip() for s in skills_raw.split(",") if s.strip()],
         languages=list(languages_selected),
+        years_experience=years_exp,
         tracks=[Track(t) for t in track_choices] or [Track.private],
     )
     st.sidebar.caption(f"DeepSeek spend this session: ${obs.total_cost_usd():.4f}")
@@ -253,35 +276,58 @@ def _render() -> None:
             lang_only = st.checkbox(
                 "🗣️ Only postings in a language I read (hide e.g. German-only vacancies)",
                 value=True, key="wdg_lang_only")
+            junior_only = st.checkbox(
+                "🎓 Junior-friendly only (hide senior roles / multi-year experience asks)",
+                value=True, key="wdg_junior_only")
             _embed_on = bool(settings.embedding_api_key)
             min_rel = st.slider(
-                "🎯 Minimum relevance to your field/CV",
+                "🎯 Strong-match threshold (shown from all countries)",
                 0.0, 0.90 if _embed_on else 0.50, 0.55 if _embed_on else 0.05, 0.01,
                 key="wdg_min_rel",
-                help=("Hide jobs that barely match your field. "
+                help=("Jobs at/above this score show from every selected country. "
                       + ("Semantic matching is ON (Jina): ~0.5–0.6 cleanly separates your "
-                         "field from unrelated roles (e.g. data-science vs intl-relations)."
+                         "field from unrelated roles."
                          if _embed_on else
                          "Only keyword matching is active (set EMBEDDING_API_KEY / Jina for "
-                         "far sharper, semantic matching). Keyword matching is rough and can "
-                         "wrongly drop relevant roles, so keep this low.")))
-            display = [
-                r for r in ranked
-                if not (viable_only and r.feasibility.level.value == "red")
-                and r.similarity >= min_rel
-                and (not lang_only
-                     or candidate_can_read(profile.languages, r.job.title, r.job.description))
-            ]
-            st.caption(f"Showing {min(len(display), 50)} of {len(ranked)} found · ranked by visa "
-                       f"feasibility, then CV relevance · matching: "
+                         "sharper semantic matching) — keep this low.")))
+            _primary = (live_countries or ["CH"])[0]
+            partial_on = st.checkbox(
+                f"➕ Also show partial matches in {_primary} (your primary country)",
+                value=True, key="wdg_partial",
+                help="Surfaces semi-relevant roles — e.g. public-sector or jobs matching "
+                     "your internship experience — but only in your primary (first) country, "
+                     "to avoid flooding the list. Strong matches still show from everywhere.")
+            partial_floor = max(0.0, min_rel - 0.20)
+
+            def _passes(r):
+                if viable_only and r.feasibility.level.value == "red":
+                    return False
+                if lang_only and not candidate_can_read(
+                        profile.languages, r.job.title, r.job.description):
+                    return False
+                if junior_only and not is_junior_friendly(
+                        r.job.title, r.job.description, max_years=profile.years_experience):
+                    return False
+                if r.similarity >= min_rel:
+                    return True  # strong match → any selected country
+                # Partial match: only in the primary country, above the lower floor.
+                return (partial_on and r.similarity >= partial_floor
+                        and r.job.country.upper() == _primary.upper())
+
+            display = [r for r in ranked if _passes(r)]
+            _partial_n = sum(1 for r in display if r.similarity < min_rel)
+            st.caption(f"Showing {min(len(display), 50)} of {len(ranked)} found "
+                       f"({_partial_n} partial) · matching: "
                        + ("semantic (Jina) ✅" if _embed_on else "keyword-only ⚠️")
-                       + ". 🟢 you qualify · 🟡 employer must sponsor · 🔴 blocked.")
+                       + ". 🟢 you qualify · 🟡 employer sponsors · 🔴 blocked.")
         for i, r in enumerate(display[:50]):  # cap rendered cards — hundreds is too heavy
             job = r.job
             uid = f"{i}-{job.source}-{job.external_id}"  # UNIQUE key (ids repeat across sources)
             emoji = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[r.feasibility.level.value]
+            _partial = r.similarity < st.session_state.get("wdg_min_rel", 0.0)
+            _tag = " · ↔ partial match" if _partial else ""
             with st.expander(f"{emoji} {job.title} · {job.company} · {job.city}, {job.country}  "
-                             f"— score {r.score} (sim {r.similarity})"):
+                             f"— score {r.score} (sim {r.similarity}){_tag}"):
                 # Plain-language visa status for a non-technical candidate.
                 lvl = r.feasibility.level.value
                 if lvl == "red":
@@ -373,7 +419,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-r")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-s")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
