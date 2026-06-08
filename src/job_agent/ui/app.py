@@ -131,12 +131,14 @@ def _render() -> None:
                                       value="policy analysis, advocacy, stakeholder engagement",
                                       key="wdg_skills")
     experience = st.sidebar.text_area(
-        "Experience / past internships (free text)", height=110, key="wdg_experience",
+        "Experience / past internships (free text)", height=200, max_chars=8000,
+        key="wdg_experience",
         value="Internship at an EU public affairs consultancy: drafted policy briefs, "
               "monitored EU legislation, supported stakeholder engagement and advocacy.",
-        help="Describe your internships/projects in plain words. Jina semantically "
-             "matches this against postings — so a role close to your past experience "
-             "surfaces even when it shares no exact keywords. Also seeds the live search.")
+        help="Up to 8000 characters — paste a full CV or several internship descriptions. "
+             "Jina semantically matches this against postings, so a role close to your past "
+             "experience surfaces even when it shares no exact keywords. Also seeds the "
+             "live search.")
     languages_selected = st.sidebar.multiselect(
         "Languages you speak", options=list(_LANGS), default=["en", "fr"],
         format_func=lambda c: _LANGS[c], key="wdg_languages",
@@ -452,7 +454,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-t")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-u")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
