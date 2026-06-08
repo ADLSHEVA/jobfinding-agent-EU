@@ -30,6 +30,7 @@ class CandidateProfile(BaseModel):
     nationality: str  # ISO-2; the engine treats EU/EEA/CH nationals specially
     degree_country: str | None = None  # ISO-2 of degree-granting country, or None
     field: str = ""  # free text, e.g. "computer science", "mechanical engineering"
+    experience: str = ""  # free text — past internships/roles, fed to semantic matching
     skills: list[str] = Field(default_factory=list)  # for CV↔job relevance matching
     languages: list[str] = Field(default_factory=list)  # ISO-639-1, e.g. ["en", "de"]
     years_experience: float = 0.0

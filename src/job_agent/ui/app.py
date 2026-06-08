@@ -47,6 +47,7 @@ _LANGS: dict[str, str] = {
 # Countries the candidate can target. Skewed to EU policy / international-relations hubs
 # (Brussels for the EU institutions, The Hague for intl law, Geneva/Vienna for UN bodies).
 _COUNTRIES: dict[str, str] = {
+    "EU": "🌍 All of Europe (incl. Switzerland)",
     "CH": "🇨🇭 Switzerland (Geneva)", "BE": "🇧🇪 Belgium (Brussels / EU)",
     "NL": "🇳🇱 Netherlands (The Hague)", "DE": "🇩🇪 Germany", "AT": "🇦🇹 Austria (Vienna)",
     "FR": "🇫🇷 France", "IT": "🇮🇹 Italy (Rome)", "PL": "🇵🇱 Poland", "CZ": "🇨🇿 Czechia",
@@ -129,13 +130,29 @@ def _render() -> None:
     skills_raw = st.sidebar.text_area("Skills (comma-separated)",
                                       value="policy analysis, advocacy, stakeholder engagement",
                                       key="wdg_skills")
+    experience = st.sidebar.text_area(
+        "Experience / past internships (free text)", height=110, key="wdg_experience",
+        value="Internship at an EU public affairs consultancy: drafted policy briefs, "
+              "monitored EU legislation, supported stakeholder engagement and advocacy.",
+        help="Describe your internships/projects in plain words. Jina semantically "
+             "matches this against postings — so a role close to your past experience "
+             "surfaces even when it shares no exact keywords. Also seeds the live search.")
     languages_selected = st.sidebar.multiselect(
         "Languages you speak", options=list(_LANGS), default=["en", "fr"],
         format_func=lambda c: _LANGS[c], key="wdg_languages",
         help="Used both for matching and to hide postings written in a language you "
              "don't read (e.g. German-only Swiss vacancies).")
-    track_choices = st.sidebar.multiselect("Tracks", ["private", "intl_org"],
-                                           default=["private", "intl_org"], key="wdg_tracks")
+    track_choices = st.sidebar.multiselect(
+        "Employer types to include", ["private", "intl_org"],
+        default=["private", "intl_org"], key="wdg_tracks",
+        format_func=lambda t: {
+            "private": "🏢 Private sector (companies, SMEs, start-ups)",
+            "intl_org": "🌐 International organisations (UN/WHO-type)",
+        }[t],
+        help="🏢 Private sector = normal work-permit rules (visa depends on your "
+             "nationality + degree country). 🌐 International organisations use a "
+             "host-country legitimation card (national work permit bypassed) — visa is "
+             "rarely the barrier, but entry is competitive and usually via internship/JPO.")
     years_exp = st.sidebar.number_input(
         "Years of work experience", min_value=0.0, max_value=40.0, value=0.0, step=0.5,
         key="wdg_years_exp",
@@ -153,6 +170,7 @@ def _render() -> None:
             st.session_state.parsed_cv = parsed  # enables the CV-variant export later
             st.sidebar.success(f"Parsed: {parsed.field} · {', '.join(parsed.skills[:4])}")
             field, skills_raw = parsed.field, ", ".join(parsed.skills)
+            experience = cv_text  # the pasted CV becomes the semantic-matching text
             if parsed.languages:  # merge CV-detected languages into the selection
                 languages_selected = sorted({*languages_selected, *(l.lower() for l in parsed.languages)})
             degree_country = parsed.degree_country or degree_country
@@ -163,6 +181,7 @@ def _render() -> None:
         nationality=nationality.strip().upper(),
         degree_country=(degree_country or "").strip().upper() or None,
         field=field.strip(),
+        experience=experience.strip(),
         skills=[s.strip() for s in skills_raw.split(",") if s.strip()],
         languages=list(languages_selected),
         years_experience=years_exp,
@@ -177,60 +196,68 @@ def _render() -> None:
     live_countries = st.sidebar.multiselect(
         "Countries to search", options=list(_COUNTRIES), default=["CH", "BE", "NL"],
         format_func=lambda c: _COUNTRIES[c], key="wdg_live_country",
-        help="International-relations juniors find more roles across EU policy hubs "
-             "(Brussels, The Hague, Vienna) than in Geneva alone. Pick up to 4 — more "
-             "countries = slower (each is searched separately).")
-    live_keywords = st.sidebar.text_input(
-        "Keywords (comma-separated)", value="policy, international, public affairs",
-        key="wdg_live_keywords",
-        help="These TARGET the search — which companies/roles get found. Don't leave "
-             "blank in Live mode or it pulls random (mostly tech) firms. Use your field "
-             "terms; English words also bias toward intl-friendly, English-posting "
-             "employers. Blank → falls back to your Field above.")
+        help="Pick 🌍 All of Europe for the widest net (one broad sweep across all "
+             "supported countries, Switzerland included) — best for hitting volume. Or "
+             "pick up to 4 specific hubs (each searched separately, slower).")
 
     def _load_jobs():
         """Demo data, or a real multi-source Scout run per selected country."""
         if not source_mode.startswith("Live"):
             return demo_jobs(), []
         from job_agent.agents import ScoutQuery
-        from job_agent.discovery import DiscoveryQuery, keep_jobs_in_country
+        from job_agent.discovery import (DiscoveryQuery, keep_jobs_in_country,
+                                         keep_jobs_in_europe)
         from job_agent.discovery.seed_builder import load_seeds
         from job_agent.persistence import dedupe_jobs
         from job_agent.pipeline import brave_search_fn, build_live_scout, production_transports
 
-        countries = [c.upper() for c in live_countries][:4] or ["CH"]  # cap → bound quota/memory
-        # Keywords TARGET the discovery search (Brave: ``site:personio.de <city> <kw>``)
-        # and filter the JobRoom feed. Empty keywords would pull random companies — for
-        # ATS that means mostly tech firms, which is why an IR candidate saw data-science
-        # roles. When the box is blank, fall back to the candidate's field terms to keep
-        # the search on-target (and biased toward English-posting employers).
-        explicit_kw = [k.strip() for k in live_keywords.split(",") if k.strip()]
-        field_kw = [t for t in profile.field.replace(",", " ").split() if len(t) > 3]
-        keywords = explicit_kw or field_kw
+        # Discovery search terms come from the field + a few salient words of the
+        # experience text (a whole paragraph makes a useless Brave query). These TARGET
+        # which companies/roles get found and also filter the JobRoom feed.
+        _stop = {"with", "from", "this", "that", "your", "into", "work", "team", "experience",
+                 "internship", "intern", "support", "supported", "including"}
+        seen: list[str] = []
+        for w in (profile.field.replace(",", " ").split()
+                  + [w.strip(".,;:()").lower() for w in profile.experience.split()]):
+            wl = w.lower()
+            if len(wl) > 3 and wl not in _stop and wl not in seen:
+                seen.append(wl)
+        keywords = seen[:6] or ["policy", "international"]
 
         http_get, http_json, http_post = production_transports()
         search_fn = brave_search_fn(settings)  # the discovery engine (if BRAVE_API_KEY set)
         seeds = load_seeds("seeds/seeds.json")
-        # Fewer companies per country as more are selected, so the total fetch (Brave
-        # quota + cloud memory + time) stays bounded regardless of how many are picked.
-        per_country = max(15, 60 // len(countries))
-
         all_jobs: list = []
         errors: list[str] = []
-        for country in countries:
-            scout = build_live_scout(
+
+        def _scout(cities, cap):
+            return build_live_scout(
                 http_get=http_get, http_json=http_json, http_post=http_post,
                 seeds=seeds, search_fn=search_fn,
-                search_cities=2, search_max_companies=per_country,
-                reliefweb_appname=settings.reliefweb_appname, obs=obs,
-            )
+                search_cities=cities, search_max_companies=cap,
+                reliefweb_appname=settings.reliefweb_appname, obs=obs)
+
+        if "EU" in [c.upper() for c in live_countries]:
+            # All of Europe: ONE broad sweep (no city filter → Brave finds companies
+            # widely, only ~6 calls), then keep everything located in a supported country.
             try:
-                result = scout.run(ScoutQuery(DiscoveryQuery(country=country, keywords=keywords)))
-                # Discovered tenants are cross-border → keep only this country's postings.
-                all_jobs.extend(keep_jobs_in_country(result.jobs, country))
+                result = _scout(cities=1, cap=130).run(
+                    ScoutQuery(DiscoveryQuery(country=None, keywords=keywords)))
+                all_jobs.extend(keep_jobs_in_europe(result.jobs))
                 errors.extend(result.errors)
-            except Exception as exc:  # noqa: BLE001 - one country must not abort the rest
-                errors.append(f"{country}: live scout failed: {exc}")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"Europe-wide scout failed: {exc}")
+        else:
+            countries = [c.upper() for c in live_countries][:4] or ["CH"]
+            per_country = max(20, 80 // len(countries))  # bound total fetch
+            for country in countries:
+                try:
+                    result = _scout(cities=2, cap=per_country).run(
+                        ScoutQuery(DiscoveryQuery(country=country, keywords=keywords)))
+                    all_jobs.extend(keep_jobs_in_country(result.jobs, country))
+                    errors.extend(result.errors)
+                except Exception as exc:  # noqa: BLE001 - one country must not abort the rest
+                    errors.append(f"{country}: live scout failed: {exc}")
 
         jobs = dedupe_jobs(all_jobs)  # same role can appear under multiple countries' fetches
         store = _job_store()
@@ -282,21 +309,25 @@ def _render() -> None:
             _embed_on = bool(settings.embedding_api_key)
             min_rel = st.slider(
                 "🎯 Strong-match threshold (shown from all countries)",
-                0.0, 0.90 if _embed_on else 0.50, 0.55 if _embed_on else 0.05, 0.01,
+                0.0, 0.90 if _embed_on else 0.50, 0.45 if _embed_on else 0.05, 0.01,
                 key="wdg_min_rel",
-                help=("Jobs at/above this score show from every selected country. "
-                      + ("Semantic matching is ON (Jina): ~0.5–0.6 cleanly separates your "
-                         "field from unrelated roles."
+                help=("Jobs at/above this score show from every selected country. Lower it "
+                      "for more results, raise it for tighter matches. "
+                      + ("Semantic matching is ON (Jina): ~0.45–0.6 is a good band."
                          if _embed_on else
                          "Only keyword matching is active (set EMBEDDING_API_KEY / Jina for "
                          "sharper semantic matching) — keep this low.")))
-            _primary = (live_countries or ["CH"])[0]
+            _eu_mode = "EU" in [c.upper() for c in live_countries]
+            _primary = next((c.upper() for c in live_countries if c.upper() != "EU"), "CH")
+            _primary_label = "all of Europe" if _eu_mode else _primary
             partial_on = st.checkbox(
-                f"➕ Also show partial matches in {_primary} (your primary country)",
+                f"➕ Also show partial / semi-relevant matches ({_primary_label})",
                 value=True, key="wdg_partial",
-                help="Surfaces semi-relevant roles — e.g. public-sector or jobs matching "
-                     "your internship experience — but only in your primary (first) country, "
-                     "to avoid flooding the list. Strong matches still show from everywhere.")
+                help="Surfaces semi-relevant roles — e.g. public-sector jobs or ones close "
+                     "to your internship experience — that fall just below the strong-match "
+                     "bar. In single/multi-country mode these are limited to your primary "
+                     "(first) country to avoid flooding; in 🌍 All-of-Europe they show "
+                     "Europe-wide. Strong matches always show regardless.")
             partial_floor = max(0.0, min_rel - 0.20)
 
             def _passes(r):
@@ -310,9 +341,11 @@ def _render() -> None:
                     return False
                 if r.similarity >= min_rel:
                     return True  # strong match → any selected country
-                # Partial match: only in the primary country, above the lower floor.
-                return (partial_on and r.similarity >= partial_floor
-                        and r.job.country.upper() == _primary.upper())
+                # Partial match: above the lower floor; Europe-wide in EU mode, else only
+                # in the primary country (to avoid flooding the list with weak matches).
+                if not (partial_on and r.similarity >= partial_floor):
+                    return False
+                return _eu_mode or r.job.country.upper() == _primary.upper()
 
             display = [r for r in ranked if _passes(r)]
             _partial_n = sum(1 for r in display if r.similarity < min_rel)
@@ -419,7 +452,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-s")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-t")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.

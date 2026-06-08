@@ -110,3 +110,34 @@ def keep_jobs_in_country(jobs: list[Job], country: str) -> list[Job]:
     """
     terms = COUNTRY_TERMS.get(country.upper(), [country.lower()])
     return [job for job in jobs if any(t in (job.city or "").lower() for t in terms)]
+
+
+# All city/country spelling variants we recognise, for an "all of Europe" search.
+_EUROPE_TERMS: tuple[str, ...] = tuple({t for terms in COUNTRY_TERMS.values() for t in terms})
+
+
+def _country_for_city(city: str) -> str | None:
+    low = (city or "").lower()
+    for code, terms in COUNTRY_TERMS.items():
+        if any(t in low for t in terms):
+            return code
+    return None
+
+
+def keep_jobs_in_europe(jobs: list[Job]) -> list[Job]:
+    """Keep postings located in any supported European country (city-based, like above).
+
+    A job already carrying a supported ISO-2 country code (board sources tag these) is
+    kept directly; ATS-discovered jobs are matched on city spelling variants, and we
+    backfill the country code from the city so the UI can show where the role is.
+    """
+    supported = {c.upper() for c in COUNTRY_TERMS}
+    out = []
+    for job in jobs:
+        if (job.country or "").upper() in supported:
+            out.append(job)
+            continue
+        code = _country_for_city(job.city or "")
+        if code:
+            out.append(job.model_copy(update={"country": code}) if not job.country else job)
+    return out

@@ -32,6 +32,7 @@ def _candidate_terms(candidate: CandidateProfile) -> set[str]:
     for skill in candidate.skills:
         terms |= _tokens(skill)
     terms |= _tokens(candidate.field)
+    terms |= _tokens(candidate.experience)  # past internships/roles widen the match
     return terms
 
 
@@ -63,7 +64,8 @@ class SemanticSimilarity:
         self._embedder = embedder
 
     def __call__(self, candidate: CandidateProfile, job: Job) -> float:
-        cv_text = f"{candidate.field}. Skills: {', '.join(candidate.skills)}"
+        cv_text = (f"{candidate.field}. Skills: {', '.join(candidate.skills)}."
+                   f" Experience: {candidate.experience}")
         job_text = f"{job.title}. {job.description}"
         try:
             vectors = self._embedder.embed([cv_text, job_text])
