@@ -326,7 +326,7 @@ def _render() -> None:
             _embed_on = bool(settings.embedding_api_key)
             min_rel = st.slider(
                 "🎯 Strong-match threshold (shown from all countries)",
-                0.0, 0.90 if _embed_on else 0.50, 0.45 if _embed_on else 0.05, 0.01,
+                0.0, 0.90 if _embed_on else 0.50, 0.55 if _embed_on else 0.10, 0.01,
                 key="wdg_min_rel",
                 help=("Jobs at/above this score show from every selected country. Lower it "
                       "for more results, raise it for tighter matches. "
