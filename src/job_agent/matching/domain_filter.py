@@ -37,30 +37,30 @@ _PROMPT_TEMPLATE = (
     "- Field: {field}\n"
     "- Skills: {skills}\n"
     "- Experience: {experience}\n\n"
-    "Generate TWO sets of search terms:\n"
-    '1. "retrieval_keywords": 4-6 keywords/phrases for job-board search queries. '
-    "CRITICAL: include BOTH types:\n"
-    "   a) Private-sector terms (e.g. 'public affairs junior', 'EU policy')\n"
-    "   b) International-organisation terms (e.g. 'UN intern Geneva', "
-    "'international organization trainee', 'NGO assistant')\n"
-    "   These are fed to Google for Jobs and Brave Search — they determine "
-    "   WHAT gets found.  If you only include private-sector terms, zero "
-    "   international-organisation jobs will appear.\n\n"
-    '2. "domain_terms": 8-12 short phrases (1-3 words each) that identify the '
-    "INDUSTRY/SECTOR of a relevant posting — NOT generic skills.\n\n"
+    "Generate TWO sets of search terms:\n\n"
+    '1. "retrieval_keywords": 4-6 JOB TITLE queries (not domain topics). '
+    "These are fed to Google for Jobs and Brave Search. Each should be a "
+    "realistic job title a candidate would search for. CRITICAL:\n"
+    "   - Must include the WORD 'junior' or 'trainee' or 'intern' in each query\n"
+    "   - Must be JOB TITLES, not topics: 'junior policy officer' YES, "
+    "'EU policy' NO; 'UN intern' YES, 'international organization' NO\n"
+    "   - Include BOTH private-sector titles AND intl-org titles\n"
+    "   - Examples: 'junior policy officer', 'public affairs trainee', "
+    "'political affairs intern', 'NGO programme assistant', "
+    "'junior advocacy officer', 'international development trainee'\n\n"
+    '2. "domain_terms": 8-12 short phrases that identify the INDUSTRY/SECTOR '
+    "of a relevant posting. Used as a post-retrieval relevance gate.\n\n"
     "RULES for domain_terms:\n"
     "- Include SECTOR terms: 'public affairs', 'policy', 'political', "
     "'legislation', 'advocacy', 'governance', 'public policy'\n"
     "- Include ORG types: 'NGO', 'international organization', 'public sector', "
     "'think tank', 'civil society', 'humanitarian', 'UN', 'WHO', 'UNDP'\n"
-    "- Include DOMAIN-SPECIFIC role terms: 'policy officer', 'political affairs', "
+    "- Include DOMAIN-SPECIFIC terms: 'policy officer', 'political affairs', "
     "'international affairs', 'foreign affairs', 'human rights', 'diplomacy', "
     "'development cooperation', 'peace'\n"
     "- Include JUNIOR role terms: 'trainee', 'intern', 'fellow', 'graduate program'\n"
-    "- DO NOT include generic skill words that appear in ANY industry: "
-    "'communication', 'stakeholder', 'coordination', 'liaison', 'project "
-    "management', 'client relations', 'team', 'experience', 'data'\n"
-    "- Include terms in French/German if standard in the field\n\n"
+    "- DO NOT include generic skill words: 'communication', 'stakeholder', "
+    "'coordination', 'liaison', 'project management', 'client relations'\n\n"
     "Reply with ONLY a JSON object, no markdown fences:\n"
     '{{"retrieval_keywords": ["...", "..."], "domain_terms": ["...", "..."]}}'
 )
@@ -103,9 +103,9 @@ def _parse_response(raw: str) -> DomainKeywords:
 
 _FIELD_FALLBACKS: dict[str, DomainKeywords] = {
     "international relations": DomainKeywords(
-        retrieval_keywords=["public affairs", "EU policy",
-                            "UN intern Geneva", "international organization trainee",
-                            "NGO assistant", "political affairs"],
+        retrieval_keywords=["junior policy officer", "public affairs trainee",
+                            "political affairs intern", "NGO programme assistant",
+                            "junior advocacy officer", "international development trainee"],
         domain_terms=["public affairs", "policy", "political", "EU legislation",
                       "advocacy", "governance", "NGO", "international organization",
                       "international affairs", "public policy", "foreign affairs",

@@ -82,7 +82,8 @@ def test_prompt_truncates_long_experience() -> None:
 
 def test_fallback_for_international_relations() -> None:
     kw = _fallback_keywords("international relations")
-    assert "public affairs" in kw.retrieval_keywords
+    assert any("policy" in k for k in kw.retrieval_keywords)
+    assert any("trainee" in k or "intern" in k for k in kw.retrieval_keywords)
     assert any("policy" in t for t in kw.domain_terms)
 
 
@@ -119,7 +120,7 @@ def test_extract_falls_back_when_no_llm() -> None:
     result = extract_domain_keywords("international relations", [], "")
     assert result.retrieval_keywords  # not empty
     assert result.domain_terms  # not empty
-    assert "public affairs" in result.retrieval_keywords
+    assert any("policy" in k for k in result.retrieval_keywords)
 
 
 def test_extract_falls_back_on_llm_error() -> None:
