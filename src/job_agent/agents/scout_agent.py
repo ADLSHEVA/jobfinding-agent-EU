@@ -25,6 +25,7 @@ from job_agent.models.job import Job
 from job_agent.observability import ObservabilityStore, start_run
 from job_agent.persistence import JobStore, dedupe_jobs
 from job_agent.sources import HttpGet, fetch_company_jobs
+from job_agent.sources.http import SourceHTTPError
 from job_agent.sources.board import BoardSource
 from job_agent.visa.signal import VisaSignalClassifier
 
@@ -104,6 +105,12 @@ class ScoutAgent:
         for company in companies:
             try:
                 jobs.extend(self._ats_fetch(company, self._http_get))
+            except SourceHTTPError as exc:
+                # A discovered handle that 404s/410s simply has no board there — a
+                # routine discovery miss, not an error worth showing the user. Only
+                # surface genuine failures (auth, server errors, etc.).
+                if exc.status not in (404, 410):
+                    errors.append(f"{company.name} [{company.ats}]: HTTP {exc.status}")
             except Exception as exc:  # noqa: BLE001 - one company must not abort the rest
                 errors.append(f"{company.name} [{company.ats}]: {type(exc).__name__}: {exc}")
 
