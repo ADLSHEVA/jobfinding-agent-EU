@@ -212,6 +212,12 @@ def _render() -> None:
                 st.write(f"**Sponsorship needed:** {r.feasibility.needs_employer_sponsorship} · "
                          f"**Signal:** {job.visa_signal.value} · **Track:** {job.track.value}")
                 st.write(job.description)
+                if job.url:
+                    # Deep-link straight to the real posting on the company's ATS /
+                    # careers page so the candidate can apply directly.
+                    st.markdown(f"**[🔗 View & apply on the company's site →]({job.url})**")
+                else:
+                    st.caption("↳ No direct application link for this posting.")
                 parsed_cv = st.session_state.get("parsed_cv")
                 cols = st.columns(3)
                 if llm_enabled and cols[0].button("✍️ Cover letter", key=f"cl-{uid}"):
@@ -283,7 +289,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-k")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-l")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
