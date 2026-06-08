@@ -38,24 +38,27 @@ _PROMPT_TEMPLATE = (
     "- Skills: {skills}\n"
     "- Experience: {experience}\n\n"
     "Generate TWO sets of search terms:\n"
-    '1. "retrieval_keywords": 3-5 keywords/phrases for job-board search queries. '
-    "These must maximize recall for relevant roles while MINIMIZING noise from "
-    "unrelated fields (especially IT, software engineering, data science, finance).\n"
+    '1. "retrieval_keywords": 4-6 keywords/phrases for job-board search queries. '
+    "CRITICAL: include BOTH types:\n"
+    "   a) Private-sector terms (e.g. 'public affairs junior', 'EU policy')\n"
+    "   b) International-organisation terms (e.g. 'UN intern Geneva', "
+    "'international organization trainee', 'NGO assistant')\n"
+    "   These are fed to Google for Jobs and Brave Search — they determine "
+    "   WHAT gets found.  If you only include private-sector terms, zero "
+    "   international-organisation jobs will appear.\n\n"
     '2. "domain_terms": 8-12 short phrases (1-3 words each) that a relevant '
     "job posting MIGHT contain.  Be INCLUSIVE — include BOTH core domain terms "
-    "AND broader adjacent terms.  A junior trainee posting at an NGO or public "
-    "institution will not always use the same vocabulary as a senior role.\n\n"
+    "AND broader adjacent terms.\n\n"
     "RULES for domain_terms:\n"
-    "- Include CORE terms (the heart of the field): e.g. 'public affairs', "
-    "'policy', 'political', 'legislation', 'advocacy', 'governance'\n"
-    "- Include BROADER terms (adjacent fields, org types): e.g. 'NGO', "
-    "'international organization', 'public sector', 'think tank', 'civil society', "
-    "'humanitarian', 'peace', 'human rights', 'diplomacy'\n"
-    "- Include ROLE terms (common junior titles): e.g. 'trainee', 'assistant', "
-    "'coordinator', 'officer', 'researcher', 'intern', 'fellow'\n"
-    "- Include FIELD-SPECIFIC compound terms: e.g. 'political affairs', "
-    "'international affairs', 'public policy', 'foreign affairs', "
-    "'development cooperation'\n"
+    "- Include CORE terms: 'public affairs', 'policy', 'political', "
+    "'legislation', 'advocacy', 'governance'\n"
+    "- Include ORG types: 'NGO', 'international organization', 'public sector', "
+    "'think tank', 'civil society', 'humanitarian', 'UN', 'WHO', 'UNDP'\n"
+    "- Include ROLE terms: 'trainee', 'assistant', 'coordinator', 'officer', "
+    "'intern', 'fellow', 'researcher'\n"
+    "- Include COMPOUND terms: 'political affairs', 'international affairs', "
+    "'public policy', 'foreign affairs', 'development cooperation', "
+    "'human rights', 'peace'\n"
     "- NEVER use ultra-generic single words: 'team', 'communication', "
     "'experience', 'skills', 'work', 'data', 'services'\n"
     "- Include terms in French/German if standard in the field\n\n"
@@ -101,15 +104,17 @@ def _parse_response(raw: str) -> DomainKeywords:
 
 _FIELD_FALLBACKS: dict[str, DomainKeywords] = {
     "international relations": DomainKeywords(
-        retrieval_keywords=["public affairs", "EU policy", "international development",
-                            "diplomacy", "advocacy specialist", "political affairs"],
+        retrieval_keywords=["public affairs", "EU policy",
+                            "UN intern Geneva", "international organization trainee",
+                            "NGO assistant", "political affairs"],
         domain_terms=["public affairs", "policy", "political", "EU legislation",
                       "advocacy", "governance", "NGO", "international organization",
                       "international affairs", "public policy", "foreign affairs",
                       "humanitarian", "peace", "human rights", "diplomacy",
                       "public sector", "think tank", "civil society", "diplomatic",
                       "international development", "development cooperation",
-                      "trainee", "assistant", "coordinator", "officer", "intern"],
+                      "trainee", "assistant", "coordinator", "officer", "intern",
+                      "UN", "WHO", "UNDP", "UNHCR"],
     ),
     "computer science": DomainKeywords(
         retrieval_keywords=["software engineer", "full stack developer",
