@@ -19,7 +19,7 @@ from job_agent.models.company import CompanyTarget
 from job_agent.observability import ObservabilityStore
 from job_agent.persistence import JobStore
 from job_agent.sources import HttpGet
-from job_agent.sources.aggregators import ArbeitsagenturSource, JobRoomSource
+from job_agent.sources.aggregators import ArbeitsagenturSource, JobRoomSource, JSearchSource
 from job_agent.sources.board import HttpJson
 from job_agent.sources.intl_org import ReliefWebSource
 from job_agent.visa.signal import VisaSignalClassifier
@@ -45,6 +45,7 @@ def build_live_scout(
     classifier: VisaSignalClassifier | None = None,
     intl_org_iso3: list[str] | None = None,
     reliefweb_appname: str = "",
+    rapidapi_key: str = "",
 ) -> ScoutAgent:
     """Wire the discovery engine + Layer-1 aggregators + Track-B into one ScoutAgent.
 
@@ -67,6 +68,10 @@ def build_live_scout(
         ReliefWebSource(http_json, iso3=intl_org_iso3 or _INTL_ORG_HUBS,
                         appname=reliefweb_appname),
     ]
+    # JSearch (Google for Jobs) reaches established employers beyond LinkedIn / the SME
+    # ATS boards — added only when a RapidAPI key is configured.
+    if rapidapi_key:
+        board_sources.append(JSearchSource(http_json, api_key=rapidapi_key))
     return ScoutAgent(
         http_get=http_get,
         discoverers=discoverers,

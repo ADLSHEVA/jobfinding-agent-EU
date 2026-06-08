@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # the ReliefWeb source is skipped silently. Set this once approved to enable it.
     reliefweb_appname: str = Field(default="")
 
+    # JSearch (RapidAPI) — aggregates Google for Jobs, so it reaches established
+    # employers that hire via their own career pages (not just LinkedIn) across all
+    # countries incl. Czechia. Free key at https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
+    rapidapi_key: str = Field(default="")
+
     @property
     def zefix_auth_header(self) -> str | None:
         if not (self.zefix_username and self.zefix_password):

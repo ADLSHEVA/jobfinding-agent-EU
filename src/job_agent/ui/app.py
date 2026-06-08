@@ -237,7 +237,8 @@ def _render() -> None:
                 http_get=http_get, http_json=http_json, http_post=http_post,
                 seeds=seeds, search_fn=search_fn,
                 search_cities=cities, search_max_companies=cap,
-                reliefweb_appname=settings.reliefweb_appname, obs=obs)
+                reliefweb_appname=settings.reliefweb_appname,
+                rapidapi_key=settings.rapidapi_key, obs=obs)
 
         if "EU" in [c.upper() for c in live_countries]:
             # All of Europe: ONE broad sweep (no city filter → Brave finds companies
@@ -455,7 +456,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-w")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-x")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
