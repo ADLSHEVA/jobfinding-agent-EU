@@ -101,15 +101,28 @@ class AtsSearchDiscoverer:
         return list(found.values())
 
 
-def keep_jobs_in_country(jobs: list[Job], country: str) -> list[Job]:
-    """Filter ATS jobs to those located in ``country``.
+# Sources whose ``country`` field is authoritative (the API already filtered by it),
+# so we trust the country code directly rather than verifying the city.
+_TRUSTED_COUNTRY_SOURCES = {"jsearch", "jobroom", "arbeitsagentur", "eures", "reliefweb"}
 
-    Search-discovered tenants are cross-border, so we keep only postings whose
-    **city** is in the target market. Matching on city (not the description) avoids
-    false positives from multinationals that merely *mention* the country elsewhere.
+
+def keep_jobs_in_country(jobs: list[Job], country: str) -> list[Job]:
+    """Filter jobs to those located in ``country``.
+
+    ATS-discovered tenants are cross-border and carry the *search* country, not the
+    job's, so for them we verify the **city** (avoids multinationals that merely mention
+    the country). Aggregator/board sources already filtered by country server-side and
+    often omit the city — for those we trust the country code.
     """
-    terms = COUNTRY_TERMS.get(country.upper(), [country.lower()])
-    return [job for job in jobs if any(t in (job.city or "").lower() for t in terms)]
+    code = country.upper()
+    terms = COUNTRY_TERMS.get(code, [country.lower()])
+    out = []
+    for job in jobs:
+        if job.source in _TRUSTED_COUNTRY_SOURCES and (job.country or "").upper() == code:
+            out.append(job)
+        elif any(t in (job.city or "").lower() for t in terms):
+            out.append(job)
+    return out
 
 
 # All city/country spelling variants we recognise, for an "all of Europe" search.

@@ -26,12 +26,15 @@ _HOST = "jsearch.p.rapidapi.com"
 _URL = "https://jsearch.p.rapidapi.com/search"
 
 
-def _to_job(d: dict[str, Any]) -> Job | None:
+def _to_job(d: dict[str, Any], fallback_country: str = "") -> Job | None:
     ext_id = d.get("job_id")
     title = d.get("job_title")
     if not ext_id or not title:
         return None
-    country = (d.get("job_country") or "").upper()
+    # Some Google-for-Jobs rows omit the structured country; the API already filtered
+    # by the requested country, so stamp that as the fallback (else the country filter
+    # downstream would wrongly drop the job).
+    country = (d.get("job_country") or fallback_country or "").upper()
     title = str(title)
     return Job(
         source="jsearch",
@@ -59,17 +62,19 @@ class JSearchSource:
         self._pages = pages
 
     def fetch(self, query: DiscoveryQuery) -> list[Job]:
-        if not self._key:
+        # Needs a key AND a country: JSearch defaults to the US when no country is given,
+        # which only wastes a (rate-limited) call on a Europe search. The Europe-wide mode
+        # therefore skips it; per-country mode drives it.
+        if not self._key or not query.country:
             return []
         import urllib.parse
 
+        country = query.country.lower()
         keywords = " ".join(query.keywords).strip() or "jobs"
-        params: dict[str, str] = {"query": keywords, "page": "1",
-                                  "num_pages": str(self._pages)}
-        if query.country:  # JSearch takes an ISO-2 country filter (cz, ch, de, …)
-            params["country"] = query.country.lower()
+        params = {"query": keywords, "page": "1", "num_pages": str(self._pages),
+                  "country": country}
         url = f"{_URL}?{urllib.parse.urlencode(params)}"
         headers = {"X-RapidAPI-Key": self._key, "X-RapidAPI-Host": _HOST,
                    "Accept": "application/json"}
         data = json.loads(self._http(url, headers)).get("data") or []
-        return [j for j in (_to_job(d) for d in data) if j is not None]
+        return [j for j in (_to_job(d, country.upper()) for d in data) if j is not None]
