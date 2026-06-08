@@ -3,7 +3,7 @@ name = "eu-job-agent"
 version = "0.1.0"
 description = "Job-search agent for junior international graduates who want to work in Europe — covers visa-sponsoring SMEs and international organisations beyond LinkedIn."
 license = { file = "LICENSE" }
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"  # Streamlit/watchdog/pydantic are unstable on 3.14; cap below it
 dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
