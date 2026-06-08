@@ -52,6 +52,7 @@ not visa-first (a visa-easy but irrelevant role should not top the list).
 | **Arbeitsagentur** | German Federal Employment Agency | — |
 | **Czech MPSV** | Czech official PES open data — incl. roles flagged open to non-EU workers (→ treated as explicit sponsorship) | — |
 | **JSearch** (Google for Jobs) | Established employers via their own career pages (CH/DE/AT/FR/NL/IT/ES; not CZ/BE) | `RAPIDAPI_KEY` |
+| **Adzuna** | European aggregator with structured search & salary data (CH/DE/AT/FR/NL/BE/IT/PL/CZ) | `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` |
 | **ReliefWeb** | Track-B intl-org jobs | `RELIEFWEB_APPNAME` (org-gated) |
 
 Search one or more countries, or **🌍 All of Europe** (one broad sweep). EURES is
@@ -59,6 +60,13 @@ omitted (its public endpoint is dead).
 
 ## Matching & filters
 
+- **Domain filtering** (new): an LLM-powered keyword extractor (Mistral-small, cheap)
+  analyses the candidate profile and generates domain-specific search terms.  These
+  drive *what* the sources fetch (retrieval keywords) and *what* passes the relevance
+  gate (domain terms).  Jobs from unrelated industries (e.g. IT/tech when the candidate
+  is in international relations) are filtered out before ranking.  Falls back to
+  built-in keyword maps when no keyword LLM is configured.  Set `KEYWORD_LLM_API_KEY`
+  for sharper results.
 - **Relevance**: semantic via Jina embeddings (`EMBEDDING_API_KEY`) — strongly
   recommended; falls back to crude keyword overlap otherwise. The pasted CV /
   experience text feeds the match, so roles close to your internships surface.
@@ -74,7 +82,7 @@ omitted (its public endpoint is dead).
 
 ```bash
 uv sync --extra dev
-uv run pytest                       # 130+ tests, fully offline
+uv run pytest                       # 165+ tests, fully offline
 uv run streamlit run streamlit_app.py
 ```
 
@@ -86,11 +94,17 @@ Deployed on Streamlit Community Cloud: entry point is `streamlit_app.py`, Python
 All optional — the app runs on demo data with none. See `.streamlit/secrets.toml.example`.
 
 ```toml
-BRAVE_API_KEY      = "..."   # Live ATS discovery
-EMBEDDING_API_KEY  = "..."   # Jina — semantic matching (EMBEDDING_BASE_URL/MODEL too)
-RAPIDAPI_KEY       = "..."   # JSearch / Google for Jobs
-LLM_API_KEY        = "..."   # DeepSeek — CV parsing & cover letters
-SUPABASE_URL / SUPABASE_KEY  # persist tracked applications
+BRAVE_API_KEY        = "..."   # Live ATS discovery
+EMBEDDING_API_KEY    = "..."   # Jina — semantic matching (EMBEDDING_BASE_URL/MODEL too)
+RAPIDAPI_KEY         = "..."   # JSearch / Google for Jobs
+ADZUNA_APP_ID        = "..."   # Adzuna — European aggregator (developer.adzuna.com)
+ADZUNA_APP_KEY       = "..."   # Adzuna API key
+KEYWORD_LLM_API_KEY  = "..."   # Mistral — domain-aware keyword extraction (optional)
+KEYWORD_LLM_BASE_URL = "https://api.mistral.ai/v1"
+KEYWORD_LLM_MODEL    = "mistral-small-latest"
+LLM_API_KEY          = "..."   # DeepSeek — CV parsing & cover letters
+RELIEFWEB_APPNAME    = "..."   # Track-B intl-org jobs (org-gated)
+SUPABASE_URL / SUPABASE_KEY   # persist tracked applications
 ```
 
 ## Status
