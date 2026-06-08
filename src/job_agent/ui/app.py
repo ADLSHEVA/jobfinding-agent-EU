@@ -25,12 +25,23 @@ import streamlit as st
 
 from job_agent.config import get_settings
 from job_agent.matching import shortlist
+from job_agent.matching.language import candidate_can_read
 from job_agent.models.application import ApplicationStatus
 from job_agent.models.candidate import CandidateProfile, Track
 from job_agent.observability import InMemoryObservability, start_run
 from job_agent.tracker import Tracker
 from job_agent.tracker.state_machine import ALLOWED_TRANSITIONS
 from job_agent.ui.demo_data import demo_jobs
+
+# Languages the candidate can pick (ISO-639-1 -> label). Major European languages plus
+# Czech and Chinese, per the target audience.
+_LANGS: dict[str, str] = {
+    "en": "English", "de": "Deutsch (German)", "fr": "Français (French)",
+    "it": "Italiano (Italian)", "es": "Español (Spanish)", "pt": "Português (Portuguese)",
+    "nl": "Nederlands (Dutch)", "pl": "Polski (Polish)", "cs": "Čeština (Czech)",
+    "sv": "Svenska (Swedish)", "da": "Dansk (Danish)", "ru": "Русский (Russian)",
+    "zh": "中文 (Chinese)",
+}
 
 
 def _application_store():
@@ -94,8 +105,11 @@ def _render() -> None:
     skills_raw = st.sidebar.text_area("Skills (comma-separated)",
                                       value="policy analysis, advocacy, stakeholder engagement",
                                       key="wdg_skills")
-    languages_raw = st.sidebar.text_input("Languages (ISO-639-1, comma)", value="en, fr",
-                                          key="wdg_languages")
+    languages_selected = st.sidebar.multiselect(
+        "Languages you speak", options=list(_LANGS), default=["en", "fr"],
+        format_func=lambda c: _LANGS[c], key="wdg_languages",
+        help="Used both for matching and to hide postings written in a language you "
+             "don't read (e.g. German-only Swiss vacancies).")
     track_choices = st.sidebar.multiselect("Tracks", ["private", "intl_org"],
                                            default=["private", "intl_org"], key="wdg_tracks")
 
@@ -109,7 +123,8 @@ def _render() -> None:
             st.session_state.parsed_cv = parsed  # enables the CV-variant export later
             st.sidebar.success(f"Parsed: {parsed.field} · {', '.join(parsed.skills[:4])}")
             field, skills_raw = parsed.field, ", ".join(parsed.skills)
-            languages_raw = ", ".join(parsed.languages)
+            if parsed.languages:  # merge CV-detected languages into the selection
+                languages_selected = sorted({*languages_selected, *(l.lower() for l in parsed.languages)})
             degree_country = parsed.degree_country or degree_country
     else:
         st.sidebar.info("Set LLM_API_KEY (DeepSeek) to enable CV parsing & cover letters.")
@@ -119,7 +134,7 @@ def _render() -> None:
         degree_country=degree_country.strip().upper() or None,
         field=field.strip(),
         skills=[s.strip() for s in skills_raw.split(",") if s.strip()],
-        languages=[lang.strip().lower() for lang in languages_raw.split(",") if lang.strip()],
+        languages=list(languages_selected),
         tracks=[Track(t) for t in track_choices] or [Track.private],
     )
     st.sidebar.caption(f"DeepSeek spend this session: ${obs.total_cost_usd():.4f}")
@@ -152,8 +167,8 @@ def _render() -> None:
             http_get=http_get, http_json=http_json, http_post=http_post,
             seeds=load_seeds("seeds/seeds.json"),
             search_fn=brave_search_fn(settings),  # the discovery engine (if BRAVE_API_KEY set)
-            search_cities=2,           # lighter on cloud memory + Brave quota than the default 3
-            search_max_companies=40,   # bound the fetch so the cloud app doesn't run out of memory
+            search_cities=3,           # widen city coverage for more companies/jobs
+            search_max_companies=70,   # widen the fetch (bounded so cloud memory is safe)
             reliefweb_appname=settings.reliefweb_appname,  # Track-B intl orgs (if registered)
             obs=obs,
         )
@@ -219,6 +234,9 @@ def _render() -> None:
             viable_only = st.checkbox(
                 "✅ Only show jobs I can realistically take (hide 🔴 blocked visa routes)",
                 value=True, key="wdg_viable_only")
+            lang_only = st.checkbox(
+                "🗣️ Only postings in a language I read (hide e.g. German-only vacancies)",
+                value=True, key="wdg_lang_only")
             _embed_on = bool(settings.embedding_api_key)
             min_rel = st.slider(
                 "🎯 Minimum relevance to your field/CV",
@@ -231,9 +249,13 @@ def _render() -> None:
                          "Only keyword matching is active (set EMBEDDING_API_KEY / Jina for "
                          "far sharper, semantic matching). Keyword matching is rough and can "
                          "wrongly drop relevant roles, so keep this low.")))
-            display = [r for r in ranked
-                       if not (viable_only and r.feasibility.level.value == "red")
-                       and r.similarity >= min_rel]
+            display = [
+                r for r in ranked
+                if not (viable_only and r.feasibility.level.value == "red")
+                and r.similarity >= min_rel
+                and (not lang_only
+                     or candidate_can_read(profile.languages, r.job.title, r.job.description))
+            ]
             st.caption(f"Showing {min(len(display), 50)} of {len(ranked)} found · ranked by visa "
                        f"feasibility, then CV relevance · matching: "
                        + ("semantic (Jina) ✅" if _embed_on else "keyword-only ⚠️")
@@ -335,7 +357,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-p")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-q")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
