@@ -7,6 +7,14 @@ Ties the pipeline together: build a candidate profile (optionally parsed from a 
 via DeepSeek), see a visa-aware ranked shortlist, generate non-fabricated cover
 letters, and track applications through their lifecycle. Degrades gracefully with
 no LLM key — matching/tracking work offline; only CV-parse and cover-letter need it.
+
+IMPORTANT — why everything renders inside ``main()``:
+Streamlit re-executes the *entry script* on every rerun (e.g. a button click). The
+entry point (``streamlit_app.py``) reaches this code via ``from ... import main``.
+A module body runs only on its FIRST import, so if we rendered at module level the
+page would draw once on initial load and then go blank on every rerun (Python skips
+the cached re-import). Putting the rendering in ``main()`` — which the entry script
+calls every run — fixes that. This was the real cause of "any button → white screen".
 """
 
 from __future__ import annotations
@@ -15,31 +23,14 @@ import os
 
 import streamlit as st
 
-# ``set_page_config`` MUST be the very first Streamlit call in the script, before
-# *any* other ``st.*`` access (including ``st.secrets``). Touching ``st.secrets``
-# first makes Streamlit treat a command as already issued and raises
-# ``StreamlitSetPageConfigMustBeFirstCommand`` here — which blanked the page on
-# Community Cloud (the page title never set, body never rendered).
-st.set_page_config(page_title="EU Job Agent", layout="wide")
-st.caption("build 2026-06-08-j")  # version heartbeat: if you see this, the latest code is live
-
-# On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env in
-# the repo). Mirror them into the environment so pydantic-settings (config.py) reads
-# them. Locally this is a no-op (there is no secrets file; .env is used instead).
-try:
-    for _k, _v in st.secrets.items():
-        os.environ.setdefault(_k, str(_v))
-except Exception:  # noqa: BLE001 - no secrets configured → fine
-    pass
-
-from job_agent.config import get_settings  # noqa: E402
-from job_agent.matching import shortlist  # noqa: E402
-from job_agent.models.application import ApplicationStatus  # noqa: E402
-from job_agent.models.candidate import CandidateProfile, Track  # noqa: E402
-from job_agent.observability import InMemoryObservability, start_run  # noqa: E402
-from job_agent.tracker import Tracker  # noqa: E402
-from job_agent.tracker.state_machine import ALLOWED_TRANSITIONS  # noqa: E402
-from job_agent.ui.demo_data import demo_jobs  # noqa: E402
+from job_agent.config import get_settings
+from job_agent.matching import shortlist
+from job_agent.models.application import ApplicationStatus
+from job_agent.models.candidate import CandidateProfile, Track
+from job_agent.observability import InMemoryObservability, start_run
+from job_agent.tracker import Tracker
+from job_agent.tracker.state_machine import ALLOWED_TRANSITIONS
+from job_agent.ui.demo_data import demo_jobs
 
 
 def _application_store():
@@ -71,12 +62,7 @@ def _job_store():
 
 
 def _render() -> None:
-    """All page rendering lives here so it can run under one error boundary.
-
-    Any uncaught exception during a rerun (e.g. when a button is clicked) used to
-    blank the whole page on Community Cloud with no on-screen message. Wrapping the
-    body lets the boundary at the bottom surface the real error instead.
-    """
+    """Draw the whole page. Called once per script run by ``main``."""
     # --- session state -------------------------------------------------------
     if "tracker" not in st.session_state:
         st.session_state.tracker = Tracker(_application_store())
@@ -289,15 +275,41 @@ def _render() -> None:
             st.divider()
 
 
-# --- error boundary ----------------------------------------------------------
-# A button click reruns the whole script; any uncaught exception there blanked the
-# page on Community Cloud with no message (showErrorDetails can't reach some failure
-# modes). Surface it on-page instead — but never swallow Streamlit's own control-flow
-# signals (st.stop / st.rerun), which are raised as exceptions by design.
-try:
-    _render()
-except Exception as exc:  # noqa: BLE001
-    if type(exc).__name__ in {"StopException", "RerunException", "RerunData"}:
-        raise
-    st.error("⚠️ The app hit an unexpected error (shown here so the page doesn't go blank):")
-    st.exception(exc)
+def main() -> None:
+    """Entry point Streamlit re-runs on every interaction.
+
+    Must run on *every* rerun (not just first import), so the entry script calls
+    this each time. ``set_page_config`` has to be the first Streamlit call, before
+    even ``st.secrets`` is touched.
+    """
+    st.set_page_config(page_title="EU Job Agent", layout="wide")
+    st.caption("build 2026-06-08-k")  # heartbeat: if you see this, the latest code is live
+
+    # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
+    # in the repo). Mirror them into the environment so pydantic-settings reads them.
+    try:
+        for _k, _v in st.secrets.items():
+            os.environ.setdefault(_k, str(_v))
+    except Exception:  # noqa: BLE001 - no secrets configured → fine
+        pass
+
+    # Error boundary: a rerun that raises used to blank the page with no message.
+    # Surface it on-page instead — but never swallow Streamlit's own control-flow
+    # signals (st.stop / st.rerun), which are raised as exceptions by design.
+    try:
+        _render()
+    except Exception as exc:  # noqa: BLE001
+        if type(exc).__name__ in {"StopException", "RerunException", "RerunData"}:
+            raise
+        st.error("⚠️ The app hit an unexpected error (shown here so the page doesn't go blank):")
+        st.exception(exc)
+
+
+# Direct use — ``streamlit run src/job_agent/ui/app.py`` — runs THIS file as the entry
+# script, so Streamlit re-executes it every rerun and this call fires each time.
+# When reached via ``streamlit_app.py`` (the Cloud entry) this module is imported, so
+# ``__name__`` isn't "__main__" and ``main()`` is NOT called here — the entry script
+# calls it instead, which is what makes it run on every rerun. Do NOT call main() at
+# import time, or the page would render once and blank on every subsequent rerun.
+if __name__ == "__main__":
+    main()
