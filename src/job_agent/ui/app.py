@@ -129,7 +129,13 @@ def _render() -> None:
     source_mode = st.sidebar.radio("Source", ["Demo data", "Live (configured sources)"],
                                    key="wdg_source_mode")
     live_country = st.sidebar.text_input("Country (ISO-2)", value="CH", key="wdg_live_country")
-    live_keywords = st.sidebar.text_input("Keywords", value="policy", key="wdg_live_keywords")
+    live_keywords = st.sidebar.text_input(
+        "Keywords (comma-separated)", value="policy, international, public affairs",
+        key="wdg_live_keywords",
+        help="These TARGET the search — which companies/roles get found. Don't leave "
+             "blank in Live mode or it pulls random (mostly tech) firms. Use your field "
+             "terms; English words also bias toward intl-friendly, English-posting "
+             "employers. Blank → falls back to your Field above.")
 
     def _load_jobs():
         """Demo data, or a real multi-source Scout run for live mode."""
@@ -151,9 +157,17 @@ def _render() -> None:
             reliefweb_appname=settings.reliefweb_appname,  # Track-B intl orgs (if registered)
             obs=obs,
         )
+        # Keywords TARGET the discovery search (Brave: ``site:personio.de <city> <kw>``)
+        # and filter the JobRoom feed. Empty keywords would pull random companies — for
+        # ATS that means mostly tech firms, which is why an IR candidate saw data-science
+        # roles. So when the box is blank, fall back to the candidate's field terms to
+        # keep the search on-target (and biased toward English-posting, intl-friendly
+        # employers). Explicit keywords always win.
+        explicit_kw = [k.strip() for k in live_keywords.split(",") if k.strip()]
+        field_kw = [t for t in profile.field.replace(",", " ").split() if len(t) > 3]
         query = ScoutQuery(DiscoveryQuery(
             country=country,
-            keywords=[k.strip() for k in live_keywords.split(",") if k.strip()],
+            keywords=explicit_kw or field_kw,
         ))
         try:
             result = scout.run(query)
@@ -307,7 +321,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-n")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-o")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
