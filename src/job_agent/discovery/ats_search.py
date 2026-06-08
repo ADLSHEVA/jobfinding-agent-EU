@@ -47,6 +47,13 @@ COUNTRY_TERMS: dict[str, list[str]] = {
            "netherlands"],
     "DE": ["berlin", "münchen", "hamburg", "köln", "frankfurt", "munich",
            "germany", "deutschland"],
+    # Policy / international-relations hubs (EU institutions, intl law, UN agencies).
+    "BE": ["brussels", "bruxelles", "brussel", "antwerp", "antwerpen", "ghent", "gent",
+           "leuven", "belgium", "belgique", "belgië"],
+    "FR": ["paris", "lyon", "marseille", "strasbourg", "lille", "toulouse",
+           "france", "français"],
+    "IT": ["rome", "roma", "milan", "milano", "turin", "torino", "florence", "firenze",
+           "italy", "italia"],
 }
 
 

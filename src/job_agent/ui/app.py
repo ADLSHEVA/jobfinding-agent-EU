@@ -43,6 +43,14 @@ _LANGS: dict[str, str] = {
     "zh": "中文 (Chinese)",
 }
 
+# Countries the candidate can target. Skewed to EU policy / international-relations hubs
+# (Brussels for the EU institutions, The Hague for intl law, Geneva/Vienna for UN bodies).
+_COUNTRIES: dict[str, str] = {
+    "CH": "🇨🇭 Switzerland (Geneva)", "BE": "🇧🇪 Belgium (Brussels / EU)",
+    "NL": "🇳🇱 Netherlands (The Hague)", "DE": "🇩🇪 Germany", "AT": "🇦🇹 Austria (Vienna)",
+    "FR": "🇫🇷 France", "IT": "🇮🇹 Italy (Rome)", "PL": "🇵🇱 Poland", "CZ": "🇨🇿 Czechia",
+}
+
 
 def _application_store():
     """Persist applications to Supabase when configured, else keep them in memory."""
@@ -143,7 +151,12 @@ def _render() -> None:
     st.sidebar.header("Jobs source")
     source_mode = st.sidebar.radio("Source", ["Demo data", "Live (configured sources)"],
                                    key="wdg_source_mode")
-    live_country = st.sidebar.text_input("Country (ISO-2)", value="CH", key="wdg_live_country")
+    live_countries = st.sidebar.multiselect(
+        "Countries to search", options=list(_COUNTRIES), default=["CH", "BE", "NL"],
+        format_func=lambda c: _COUNTRIES[c], key="wdg_live_country",
+        help="International-relations juniors find more roles across EU policy hubs "
+             "(Brussels, The Hague, Vienna) than in Geneva alone. Pick up to 4 — more "
+             "countries = slower (each is searched separately).")
     live_keywords = st.sidebar.text_input(
         "Keywords (comma-separated)", value="policy, international, public affairs",
         key="wdg_live_keywords",
@@ -153,54 +166,57 @@ def _render() -> None:
              "employers. Blank → falls back to your Field above.")
 
     def _load_jobs():
-        """Demo data, or a real multi-source Scout run for live mode."""
+        """Demo data, or a real multi-source Scout run per selected country."""
         if not source_mode.startswith("Live"):
             return demo_jobs(), []
         from job_agent.agents import ScoutQuery
         from job_agent.discovery import DiscoveryQuery, keep_jobs_in_country
         from job_agent.discovery.seed_builder import load_seeds
+        from job_agent.persistence import dedupe_jobs
         from job_agent.pipeline import brave_search_fn, build_live_scout, production_transports
 
-        country = live_country.strip().upper() or None
-        http_get, http_json, http_post = production_transports()
-        scout = build_live_scout(
-            http_get=http_get, http_json=http_json, http_post=http_post,
-            seeds=load_seeds("seeds/seeds.json"),
-            search_fn=brave_search_fn(settings),  # the discovery engine (if BRAVE_API_KEY set)
-            search_cities=3,           # widen city coverage for more companies/jobs
-            search_max_companies=70,   # widen the fetch (bounded so cloud memory is safe)
-            reliefweb_appname=settings.reliefweb_appname,  # Track-B intl orgs (if registered)
-            obs=obs,
-        )
+        countries = [c.upper() for c in live_countries][:4] or ["CH"]  # cap → bound quota/memory
         # Keywords TARGET the discovery search (Brave: ``site:personio.de <city> <kw>``)
         # and filter the JobRoom feed. Empty keywords would pull random companies — for
         # ATS that means mostly tech firms, which is why an IR candidate saw data-science
-        # roles. So when the box is blank, fall back to the candidate's field terms to
-        # keep the search on-target (and biased toward English-posting, intl-friendly
-        # employers). Explicit keywords always win.
+        # roles. When the box is blank, fall back to the candidate's field terms to keep
+        # the search on-target (and biased toward English-posting employers).
         explicit_kw = [k.strip() for k in live_keywords.split(",") if k.strip()]
         field_kw = [t for t in profile.field.replace(",", " ").split() if len(t) > 3]
-        query = ScoutQuery(DiscoveryQuery(
-            country=country,
-            keywords=explicit_kw or field_kw,
-        ))
-        try:
-            result = scout.run(query)
-            jobs = result.jobs
-            # Sources/discovered tenants are cross-border → keep only target-country jobs.
-            if country:
-                jobs = keep_jobs_in_country(jobs, country)
-            errors = list(result.errors)
-            # Persist the relevant (in-country) jobs to Supabase if configured.
-            store = _job_store()
-            if store is not None and jobs:
-                try:
-                    store.upsert_jobs(jobs)
-                except Exception as exc:  # noqa: BLE001
-                    errors.append(f"persist failed: {exc}")
-            return jobs, errors
-        except Exception as exc:  # noqa: BLE001 - surface, don't crash the UI
-            return [], [f"live scout failed: {exc}"]
+        keywords = explicit_kw or field_kw
+
+        http_get, http_json, http_post = production_transports()
+        search_fn = brave_search_fn(settings)  # the discovery engine (if BRAVE_API_KEY set)
+        seeds = load_seeds("seeds/seeds.json")
+        # Fewer companies per country as more are selected, so the total fetch (Brave
+        # quota + cloud memory + time) stays bounded regardless of how many are picked.
+        per_country = max(15, 60 // len(countries))
+
+        all_jobs: list = []
+        errors: list[str] = []
+        for country in countries:
+            scout = build_live_scout(
+                http_get=http_get, http_json=http_json, http_post=http_post,
+                seeds=seeds, search_fn=search_fn,
+                search_cities=2, search_max_companies=per_country,
+                reliefweb_appname=settings.reliefweb_appname, obs=obs,
+            )
+            try:
+                result = scout.run(ScoutQuery(DiscoveryQuery(country=country, keywords=keywords)))
+                # Discovered tenants are cross-border → keep only this country's postings.
+                all_jobs.extend(keep_jobs_in_country(result.jobs, country))
+                errors.extend(result.errors)
+            except Exception as exc:  # noqa: BLE001 - one country must not abort the rest
+                errors.append(f"{country}: live scout failed: {exc}")
+
+        jobs = dedupe_jobs(all_jobs)  # same role can appear under multiple countries' fetches
+        store = _job_store()
+        if store is not None and jobs:
+            try:
+                store.upsert_jobs(jobs)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"persist failed: {exc}")
+        return jobs, errors
 
     # --- main ----------------------------------------------------------------
     st.title("EU Job Agent")
@@ -357,7 +373,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-q")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-r")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
