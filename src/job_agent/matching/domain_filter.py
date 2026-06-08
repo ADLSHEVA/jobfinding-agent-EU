@@ -46,9 +46,8 @@ _PROMPT_TEMPLATE = (
     "   These are fed to Google for Jobs and Brave Search — they determine "
     "   WHAT gets found.  If you only include private-sector terms, zero "
     "   international-organisation jobs will appear.\n\n"
-    '2. "domain_terms": 8-12 short phrases (1-3 words each) that a relevant '
-    "job posting MIGHT contain.  Be INCLUSIVE — include BOTH core domain terms "
-    "AND broader adjacent terms.\n\n"
+    '2. "domain_terms": 10-15 short phrases (1-3 words each) that a relevant '
+    "job posting MIGHT contain.  Be VERY INCLUSIVE.\n\n"
     "RULES for domain_terms:\n"
     "- Include CORE terms: 'public affairs', 'policy', 'political', "
     "'legislation', 'advocacy', 'governance'\n"
@@ -59,8 +58,12 @@ _PROMPT_TEMPLATE = (
     "- Include COMPOUND terms: 'political affairs', 'international affairs', "
     "'public policy', 'foreign affairs', 'development cooperation', "
     "'human rights', 'peace'\n"
-    "- NEVER use ultra-generic single words: 'team', 'communication', "
-    "'experience', 'skills', 'work', 'data', 'services'\n"
+    "- Include TRANSFERABLE-SKILL roles that an IR graduate can do at ANY "
+    "company (not just NGOs): 'project coordination', 'stakeholder', "
+    "'client relations', 'account management', 'office management', "
+    "'communication', 'event coordination', 'partnership', 'liaison'\n"
+    "- NEVER use ultra-generic single words: 'team', 'experience', 'skills', "
+    "'work', 'data', 'services', 'management' (but 'project coordination' OK)\n"
     "- Include terms in French/German if standard in the field\n\n"
     "Reply with ONLY a JSON object, no markdown fences:\n"
     '{{"retrieval_keywords": ["...", "..."], "domain_terms": ["...", "..."]}}'
@@ -114,7 +117,11 @@ _FIELD_FALLBACKS: dict[str, DomainKeywords] = {
                       "public sector", "think tank", "civil society", "diplomatic",
                       "international development", "development cooperation",
                       "trainee", "assistant", "coordinator", "officer", "intern",
-                      "UN", "WHO", "UNDP", "UNHCR"],
+                      "UN", "WHO", "UNDP", "UNHCR",
+                      # Transferable-skill roles at private companies
+                      "project coordination", "stakeholder", "client relations",
+                      "account management", "office management", "communication",
+                      "event coordination", "partnership", "liaison"],
     ),
     "computer science": DomainKeywords(
         retrieval_keywords=["software engineer", "full stack developer",
