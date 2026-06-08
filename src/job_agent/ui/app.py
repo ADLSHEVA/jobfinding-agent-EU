@@ -219,11 +219,25 @@ def _render() -> None:
             viable_only = st.checkbox(
                 "✅ Only show jobs I can realistically take (hide 🔴 blocked visa routes)",
                 value=True, key="wdg_viable_only")
+            _embed_on = bool(settings.embedding_api_key)
+            min_rel = st.slider(
+                "🎯 Minimum relevance to your field/CV",
+                0.0, 0.90 if _embed_on else 0.50, 0.55 if _embed_on else 0.05, 0.01,
+                key="wdg_min_rel",
+                help=("Hide jobs that barely match your field. "
+                      + ("Semantic matching is ON (Jina): ~0.5–0.6 cleanly separates your "
+                         "field from unrelated roles (e.g. data-science vs intl-relations)."
+                         if _embed_on else
+                         "Only keyword matching is active (set EMBEDDING_API_KEY / Jina for "
+                         "far sharper, semantic matching). Keyword matching is rough and can "
+                         "wrongly drop relevant roles, so keep this low.")))
             display = [r for r in ranked
-                       if not (viable_only and r.feasibility.level.value == "red")]
+                       if not (viable_only and r.feasibility.level.value == "red")
+                       and r.similarity >= min_rel]
             st.caption(f"Showing {min(len(display), 50)} of {len(ranked)} found · ranked by visa "
-                       f"feasibility, then CV relevance. 🟢 = you qualify · 🟡 = employer must "
-                       f"sponsor · 🔴 = blocked for your profile.")
+                       f"feasibility, then CV relevance · matching: "
+                       + ("semantic (Jina) ✅" if _embed_on else "keyword-only ⚠️")
+                       + ". 🟢 you qualify · 🟡 employer must sponsor · 🔴 blocked.")
         for i, r in enumerate(display[:50]):  # cap rendered cards — hundreds is too heavy
             job = r.job
             uid = f"{i}-{job.source}-{job.external_id}"  # UNIQUE key (ids repeat across sources)
@@ -321,7 +335,7 @@ def main() -> None:
     even ``st.secrets`` is touched.
     """
     st.set_page_config(page_title="EU Job Agent", layout="wide")
-    st.caption("build 2026-06-08-o")  # heartbeat: if you see this, the latest code is live
+    st.caption("build 2026-06-08-p")  # heartbeat: if you see this, the latest code is live
 
     # On Streamlit Community Cloud, config comes from the dashboard "Secrets" (no .env
     # in the repo). Mirror them into the environment so pydantic-settings reads them.
